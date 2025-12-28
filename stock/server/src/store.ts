@@ -1,5 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { mysqlHealthy } from './mysql.js';
 import {
   fetchAllQuotes,
@@ -62,34 +60,7 @@ type StoreData = {
   news: NewsItem[];
 };
 
-const dataDir = path.resolve(process.cwd(), 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-
-const storePath = path.resolve(dataDir, 'store.json');
-
-function readStore(): StoreData {
-  if (!fs.existsSync(storePath)) {
-    return { symbols: [], quotes: [], klines: [], news: [] };
-  }
-  const raw = fs.readFileSync(storePath, 'utf-8');
-  try {
-    const parsed = JSON.parse(raw) as StoreData;
-    return {
-      symbols: Array.isArray(parsed.symbols) ? parsed.symbols : [],
-      quotes: Array.isArray(parsed.quotes) ? parsed.quotes : [],
-      klines: Array.isArray(parsed.klines) ? parsed.klines : [],
-      news: Array.isArray(parsed.news) ? parsed.news : []
-    };
-  } catch {
-    return { symbols: [], quotes: [], klines: [], news: [] };
-  }
-}
-
-function writeStore(data: StoreData) {
-  fs.writeFileSync(storePath, JSON.stringify(data), 'utf-8');
-}
-
-let mem: StoreData = readStore();
+let mem: StoreData = { symbols: [], quotes: [], klines: [], news: [] };
 let mysqlReady = false;
 
 export async function initStore(): Promise<void> {
@@ -127,7 +98,6 @@ export const store = {
       map.set(`${indexTag}:${r.code}`, { code: r.code, name: r.name, market: r.market, index_tag: indexTag });
     }
     mem.symbols = Array.from(map.values());
-    writeStore(mem);
     if (mysqlReady) void mysqlUpsertSymbols(indexTag, rows).catch(() => undefined);
   },
 
@@ -141,7 +111,6 @@ export const store = {
     for (const q of mem.quotes) map.set(q.code, q);
     for (const q of rows) map.set(q.code, q);
     mem.quotes = Array.from(map.values());
-    writeStore(mem);
     if (mysqlReady) void mysqlReplaceQuotes(rows).catch(() => undefined);
   },
 
@@ -152,7 +121,6 @@ export const store = {
     for (const r of rows) map.set(r.ts, r);
     const merged = Array.from(map.values()).sort((a, b) => a.ts - b.ts);
     mem.klines = keep.concat(merged);
-    writeStore(mem);
     if (mysqlReady) void mysqlUpsertKlines(code, rows).catch(() => undefined);
   },
 
@@ -168,7 +136,6 @@ export const store = {
           if (!fresh.length) return;
           const keep = mem.klines.filter((x) => x.code !== code);
           mem.klines = keep.concat(fresh);
-          writeStore(mem);
         })
         .catch(() => undefined);
     }
@@ -189,7 +156,6 @@ export const store = {
     for (const it of items) map.set(it.id, it);
     const merged = Array.from(map.values()).sort((a, b) => b.ts - a.ts).slice(0, 500);
     mem.news = merged;
-    writeStore(mem);
     const after = new Set(merged.map((x) => x.id)).size;
     if (mysqlReady) void mysqlReplaceNews(items).catch(() => undefined);
     return Math.max(0, after - before);

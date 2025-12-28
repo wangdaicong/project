@@ -68,11 +68,11 @@ async function precomputeRecoTopOnce(port: number): Promise<void> {
 }
 
 async function bootstrap() {
-  // MySQL：初始化表（失败不影响主流程，仍可用 store.json 兜底）
+  // MySQL：初始化表（失败不影响主流程）
   try {
     await ensureMysqlTables();
     await createStockTables();
-  } catch {
+  } catch (e) {
     // ignore
   }
 

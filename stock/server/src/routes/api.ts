@@ -28,6 +28,34 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+const inflightKlines = new Map<string, Promise<number>>();
+
+async function ensureKlinesBestEffort(code: string, limit: number): Promise<{ rows: any[]; source: 'cache' | 'fresh' | 'partial' }> {
+  const need = Math.min(60, limit);
+  const cached = store.getKlines(code, limit);
+  if (cached.length >= need) return { rows: cached, source: 'cache' };
+
+  const key = `${code}:${limit}`;
+  let p = inflightKlines.get(key);
+  if (!p) {
+    p = syncKlines(provider, code, limit);
+    inflightKlines.set(key, p);
+    void p.finally(() => {
+      inflightKlines.delete(key);
+    });
+  }
+
+  try {
+    await withTimeout(p, 4500);
+  } catch {
+    // ignore: fall back to whatever cache we have; inflight continues in background
+  }
+
+  const after = store.getKlines(code, limit);
+  if (after.length >= need) return { rows: after, source: 'fresh' };
+  return { rows: after.length ? after : cached, source: 'partial' };
+}
+
 type ThemeRule = {
   theme: string;
   weight: number;
@@ -448,13 +476,8 @@ apiRouter.get('/kline', async (req: Request, res: Response) => {
     .safeParse(req.query);
   if (!q.success) return res.status(400).json({ error: 'bad_request' });
 
-  // 优先返回缓存，避免接口阻塞导致前端图表长期 loading；缓存不足则后台补拉
-  const rows = store.getKlines(q.data.code, q.data.limit);
-  if (rows.length < Math.min(60, q.data.limit)) {
-    void syncKlines(provider, q.data.code, q.data.limit).catch(() => undefined);
-  }
-
-  const rows2 = rows.length ? rows : store.getKlines(q.data.code, q.data.limit);
+  // 缓存不足时：同步向数据源拉取（带超时 + singleflight），避免前端长期空白/反复loading
+  const { rows: rows2, source } = await ensureKlinesBestEffort(q.data.code, q.data.limit);
 
   const ts = rows2.map((r: any) => r.ts as number);
   const close = rows2.map((r: any) => r.close as number);
@@ -464,6 +487,10 @@ apiRouter.get('/kline', async (req: Request, res: Response) => {
     data: {
       klines: rows2,
       macd
+    },
+    meta: {
+      source,
+      count: rows2.length
     }
   });
 });

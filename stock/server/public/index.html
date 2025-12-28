@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>A股实时数据同步与推荐（MVP）</title>
     <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "PingFang SC", "Microsoft YaHei"; margin: 0; background: #0b1020; color: #e7ecff; min-height: 100vh; height: auto; display:flex; flex-direction:column; overflow:auto; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "PingFang SC", "Microsoft YaHei"; margin: 0; background: #0b1020; color: #e7ecff; min-height: 100vh; height: 100vh; display:flex; flex-direction:column; overflow:hidden; }
       header { padding: 12px 16px; border-bottom: 1px solid #1f2a4a; display:flex; gap:12px; align-items:center; justify-content:space-between; }
       header h1 { font-size: 16px; margin: 0; font-weight: 650; }
-      main { display: grid; grid-template-columns: 360px 1fr; gap: 12px; padding: 12px; flex: 1; min-height: 0; align-items: stretch; overflow:auto; }
+      main { display: grid; grid-template-columns: 360px 1fr; gap: 12px; padding: 12px; flex: 1; min-height: 0; align-items: stretch; overflow:hidden; }
       .card { background: #0f1730; border: 1px solid #1f2a4a; border-radius: 10px; overflow: hidden; }
       .card .hd { padding: 10px 12px; border-bottom: 1px solid #1f2a4a; font-weight: 650; color: #cfe0ff; display:flex; justify-content:space-between; align-items:center; }
       .card .bd { padding: 10px 12px; }
@@ -22,14 +22,15 @@
       #chart { flex: 1 1 auto; min-height: 260px; max-height: 520px; height: 420px; }
       #chart2 { flex: 0 0 180px; min-height: 160px; height: 180px; margin-top: 0; }
       #recoReason { white-space: pre-line; }
-      .split { display:grid; grid-template-columns: 1fr; gap: 12px; height: 100%; }
+      #themeRecoReason { white-space: pre-line; }
+      .split { display:grid; grid-template-columns: 1fr; gap: 12px; height: 100%; flex:1; min-height:0; }
       .leftCol { display:flex; flex-direction:column; height: 100%; }
       .leftCol .bd { flex: 1; display:flex; min-height: 0; }
-      .recoCard { display:flex; flex-direction:column; height: 100%; }
-      .recoCard .bd { flex: 1; display:flex; flex-direction:column; }
+      .recoCard { display:flex; flex-direction:column; height: 100%; flex:1; min-height:0; }
+      .recoCard .bd { flex: 1; display:flex; flex-direction:column; min-height:0; }
       .recoList { flex: 1; overflow:auto; }
       .rightCol { display:flex; flex-direction:column; height: 100%; }
-      .rightCol .bd { flex: 1; min-height: 0; display:flex; flex-direction:column; gap: 10px; }
+      .rightCol .bd { flex: 1; min-height: 0; display:flex; flex-direction:column; gap: 10px; overflow:auto; }
       .rightInfo { display:flex; flex-direction:column; gap:8px; }
       .rightText { padding: 10px 12px; border: 1px solid #1f2a4a; border-radius: 10px; background: rgba(255,255,255,0.02); max-height: 160px; overflow:auto; }
       a { color:#bcd0ff; text-decoration: none; }
@@ -89,7 +90,6 @@
                   <select id="themeSelect" style="flex:1; min-width:240px;"></select>
                   <button id="themeBtn">确定</button>
                 </div>
-                <div class="muted" id="recoKeywordCountdown" style="margin-bottom:10px;">预分析倒计时：—</div>
                 <div class="recoList" id="recoList"></div>
               </div>
             </div>
@@ -170,6 +170,7 @@
               <div class="hd"><span id="themeRecoHd">推荐股票（Top 20）</span><span class="muted" id="themeRecoMeta">—</span></div>
               <div class="bd" style="flex:1; min-height:0; display:flex; flex-direction:column;">
                 <div class="muted" id="themeRecoHot" style="margin-bottom:8px;">热点：—</div>
+                <div class="muted" id="themeRecoKeywordCountdown" style="margin-bottom:10px;">预分析倒计时：—</div>
                 <div class="recoList" id="themeRecoList"></div>
               </div>
             </section>
@@ -179,7 +180,7 @@
                 <span id="themeTitle">个股 行情</span>
                 <span class="muted" id="themeSub">—</span>
               </div>
-              <div class="bd" style="flex:1; min-height:0; display:flex; flex-direction:column; gap:10px;">
+              <div class="bd" style="flex:1; min-height:0; display:flex; flex-direction:column; gap:10px; overflow:auto;">
                 <div class="rightInfo">
                   <div class="row" style="gap:10px; flex-wrap:wrap;">
                     <span class="pill" id="themeQuoteOpen">开：—</span>
@@ -194,8 +195,8 @@
                   </div>
                   <div class="muted rightText" id="themeRecoReason">推荐理由：—</div>
                 </div>
-                <div id="themeChart" style="flex: 1 1 auto; min-height: 260px; max-height: 520px; height: 420px;"></div>
-                <div id="themeChart2" style="flex: 0 0 180px; min-height: 160px; height: 180px;"></div>
+                <div id="themeChart" style="flex: 1 1 auto; min-height: 220px; max-height: 420px; height: 340px;"></div>
+                <div id="themeChart2" style="flex: 0 0 160px; min-height: 140px; height: 160px;"></div>
               </div>
             </section>
           </div>
@@ -215,7 +216,6 @@
       const recoHot = document.getElementById('recoHot');
       const themeSelect = document.getElementById('themeSelect');
       const themeBtn = document.getElementById('themeBtn');
-      const recoKeywordCountdown = document.getElementById('recoKeywordCountdown');
       const recoEntry = document.getElementById('recoEntry');
       const recoExit = document.getElementById('recoExit');
       const recoRisk = document.getElementById('recoRisk');
@@ -235,6 +235,10 @@
       let refreshTimer = null;
       let recoTimer = null;
       let idxTimer = null;
+      let countdownTimer = null;
+      let themeCountdownTimer = null;
+      let nextRecoAt = 0;
+      let themeNextAt = 0;
 
       const klineCache = new Map();
 
@@ -252,6 +256,7 @@
       const themeRecoHd = document.getElementById('themeRecoHd');
       const themeRecoMeta = document.getElementById('themeRecoMeta');
       const themeRecoHot = document.getElementById('themeRecoHot');
+      const themeRecoKeywordCountdown = document.getElementById('themeRecoKeywordCountdown');
       const themeRecoListEl = document.getElementById('themeRecoList');
 
       const themeTitleEl = document.getElementById('themeTitle');
@@ -420,15 +425,58 @@
         el.entry.textContent = `入仓：${reco.entry}`;
         el.exit.textContent = `出仓：${reco.exit}`;
         el.risk.textContent = `风险：${reco.risk}`;
-        const summary = reco.summary ? `摘要：${reco.summary}` : '';
-        const sig = Array.isArray(reco.signals) ? reco.signals.map(s => `${s.label}:${s.value}`).join('；') : '';
-        const tri = Array.isArray(reco.triggers) ? reco.triggers.join('；') : '';
-        const risk = Array.isArray(reco.risks) ? reco.risks.join('；') : '';
-        const news = Array.isArray(reco.newsKeywords) && reco.newsKeywords.length ? `热点：${reco.newsKeywords.join(' / ')}` : '';
-        const parts = [summary, news, sig ? `信号：${sig}` : '', tri ? `触发：${tri}` : '', risk ? `风险：${risk}` : '', reco.reason ? `原始说明：${reco.reason}` : '']
-          .filter(Boolean)
-          .join('\n');
-        el.reason.textContent = parts ? parts : `推荐理由：${reco.reason ?? '—'}`;
+        const lines = [];
+        if (reco.summary) lines.push(`摘要：${reco.summary}`);
+
+        const newsArr = Array.isArray(reco.newsKeywords) ? reco.newsKeywords.map(x => String(x || '').trim()).filter(Boolean) : [];
+        const newsUniq = Array.from(new Set(newsArr));
+        if (newsUniq.length) lines.push(`时事面：${newsUniq.join(' / ')}`);
+
+        const sigArr = Array.isArray(reco.signals)
+          ? reco.signals
+              .map(s => ({ label: String(s?.label ?? '').trim(), value: s?.value }))
+              .filter(s => s.label)
+              .map(s => (s.value != null && String(s.value).trim() !== '' ? `${s.label}:${String(s.value).trim()}` : s.label))
+          : [];
+        const sigUniq = Array.from(new Set(sigArr));
+        if (sigUniq.length) lines.push(`信号：${sigUniq.join('；')}`);
+
+        const triArr = Array.isArray(reco.triggers) ? reco.triggers.map(x => String(x || '').trim()).filter(Boolean) : [];
+        const triUniq = Array.from(new Set(triArr));
+        if (triUniq.length) lines.push(`触发：${triUniq.join('；')}`);
+
+        const riskArr = Array.isArray(reco.risks) ? reco.risks.map(x => String(x || '').trim()).filter(Boolean) : [];
+        const riskUniq = Array.from(new Set(riskArr));
+        if (riskUniq.length) lines.push(`风控：${riskUniq.join('；')}`);
+
+        if (reco.reason) lines.push(`推荐理由：${reco.reason}`);
+        el.reason.textContent = lines.length ? lines.join('\n') : '推荐理由：—';
+      }
+
+      function formatCountdown(ms) {
+        if (!Number.isFinite(ms) || ms <= 0) return '00:00';
+        const s = Math.max(0, Math.floor(ms / 1000));
+        const mm = String(Math.floor(s / 60)).padStart(2, '0');
+        const ss = String(s % 60).padStart(2, '0');
+        return `${mm}:${ss}`;
+      }
+
+      function startGlobalCountdown() {
+        if (countdownTimer) clearInterval(countdownTimer);
+        countdownTimer = setInterval(() => {
+          // 首页倒计时已移除：这里只维持 nextRecoAt 用于弹窗切换时复用
+          void nextRecoAt;
+        }, 1000);
+      }
+
+      function startThemeCountdown() {
+        if (themeCountdownTimer) clearInterval(themeCountdownTimer);
+        themeCountdownTimer = setInterval(() => {
+          if (!themeMask || themeMask.style.display !== 'flex') return;
+          if (!themeRecoKeywordCountdown) return;
+          const left = themeNextAt - Date.now();
+          themeRecoKeywordCountdown.textContent = `预分析倒计时：${formatCountdown(left)}`;
+        }, 1000);
       }
 
       function renderKlineTo(ch, ch2, payload) {
@@ -438,13 +486,18 @@
         if (!kl.length) {
           ch.hideLoading();
           ch2.hideLoading();
-          ch.setOption({
-            xAxis: { type: 'category', data: [] },
-            yAxis: { type: 'value' },
-            series: [],
-            graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'K线数据为空（免费源可能波动）', fill:'#97a7d3', fontSize:14 } }]
-          }, true);
-          ch2.setOption({ series: [], graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'MACD数据为空', fill:'#97a7d3', fontSize:14 } }] }, true);
+          // 保留上一帧图表，避免“空白闪烁”；仅在首次无数据时给提示
+          const opt = ch.getOption && ch.getOption();
+          const hasSeries = opt && Array.isArray(opt.series) && opt.series.length;
+          if (!hasSeries) {
+            ch.setOption({
+              xAxis: { type: 'category', data: [] },
+              yAxis: { type: 'value' },
+              series: [],
+              graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'K线数据为空（免费源可能波动）', fill:'#97a7d3', fontSize:14 } }]
+            }, true);
+            ch2.setOption({ series: [], graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'MACD数据为空', fill:'#97a7d3', fontSize:14 } }] }, true);
+          }
           return;
         }
         const x = kl.map(k => {
@@ -590,6 +643,7 @@
         if (themeRecoHd) themeRecoHd.textContent = `推荐股票（Top 20）`;
         if (themeRecoMeta) themeRecoMeta.textContent = '加载中…';
         if (themeRecoHot) themeRecoHot.textContent = '热点：—';
+        if (themeRecoKeywordCountdown) themeRecoKeywordCountdown.textContent = '预分析倒计时：—';
         if (themeRecoListEl) themeRecoListEl.innerHTML = `<div class="muted">加载中…</div>`;
 
         try {
@@ -598,6 +652,8 @@
           const kws = (r.meta && r.meta.keywords) ? r.meta.keywords : [];
           if (themeRecoMeta) themeRecoMeta.textContent = `数量：${Array.isArray(data) ? data.length : 0}`;
           if (themeRecoHot) themeRecoHot.textContent = `主题：${theme}；热点/关键字：${kws.length ? kws.join(' / ') : '—'}`;
+          themeNextAt = Date.now() + Math.max(20_000, Number(cfg.recoRefreshSec) * 1000);
+          startThemeCountdown();
           const list = Array.isArray(data) ? data : [];
 
           const target = {
@@ -641,7 +697,10 @@
 
       function scheduleTimers() {
         if (recoTimer) clearInterval(recoTimer);
-        recoTimer = setInterval(loadRecoTop, Math.max(20_000, Number(cfg.recoRefreshSec) * 1000));
+        const iv = Math.max(20_000, Number(cfg.recoRefreshSec) * 1000);
+        recoTimer = setInterval(loadRecoTop, iv);
+        nextRecoAt = Date.now() + iv;
+        startGlobalCountdown();
 
         if (idxTimer) clearInterval(idxTimer);
         idxTimer = setInterval(loadIndexQuotesOnce, Math.max(15_000, Number(cfg.idxRefreshSec) * 1000));
@@ -797,15 +856,32 @@
         recoEntry.textContent = `入仓：${reco.entry}`;
         recoExit.textContent = `出仓：${reco.exit}`;
         recoRisk.textContent = `风险：${reco.risk}`;
-        const summary = reco.summary ? `摘要：${reco.summary}` : '';
-        const sig = Array.isArray(reco.signals) ? reco.signals.map(s => `${s.label}:${s.value}`).join('；') : '';
-        const tri = Array.isArray(reco.triggers) ? reco.triggers.join('；') : '';
-        const risk = Array.isArray(reco.risks) ? reco.risks.join('；') : '';
-        const news = Array.isArray(reco.newsKeywords) && reco.newsKeywords.length ? `热点：${reco.newsKeywords.join(' / ')}` : '';
-        const parts = [summary, news, sig ? `信号：${sig}` : '', tri ? `触发：${tri}` : '', risk ? `风险：${risk}` : '', reco.reason ? `原始说明：${reco.reason}` : '']
-          .filter(Boolean)
-          .join('\n');
-        recoReason.textContent = parts ? parts : `推荐理由：${reco.reason ?? '—'}`;
+        const lines = [];
+        if (reco.summary) lines.push(`摘要：${reco.summary}`);
+
+        const newsArr = Array.isArray(reco.newsKeywords) ? reco.newsKeywords.map(x => String(x || '').trim()).filter(Boolean) : [];
+        const newsUniq = Array.from(new Set(newsArr));
+        if (newsUniq.length) lines.push(`时事面：${newsUniq.join(' / ')}`);
+
+        const sigArr = Array.isArray(reco.signals)
+          ? reco.signals
+              .map(s => ({ label: String(s?.label ?? '').trim(), value: s?.value }))
+              .filter(s => s.label)
+              .map(s => (s.value != null && String(s.value).trim() !== '' ? `${s.label}:${String(s.value).trim()}` : s.label))
+          : [];
+        const sigUniq = Array.from(new Set(sigArr));
+        if (sigUniq.length) lines.push(`信号：${sigUniq.join('；')}`);
+
+        const triArr = Array.isArray(reco.triggers) ? reco.triggers.map(x => String(x || '').trim()).filter(Boolean) : [];
+        const triUniq = Array.from(new Set(triArr));
+        if (triUniq.length) lines.push(`触发：${triUniq.join('；')}`);
+
+        const riskArr = Array.isArray(reco.risks) ? reco.risks.map(x => String(x || '').trim()).filter(Boolean) : [];
+        const riskUniq = Array.from(new Set(riskArr));
+        if (riskUniq.length) lines.push(`风控：${riskUniq.join('；')}`);
+
+        if (reco.reason) lines.push(`推荐理由：${reco.reason}`);
+        recoReason.textContent = lines.length ? lines.join('\n') : '推荐理由：—';
       }
 
       function renderKline(payload) {
@@ -815,13 +891,18 @@
         if (!kl.length) {
           chart.hideLoading();
           chart2.hideLoading();
-          chart.setOption({
-            xAxis: { type: 'category', data: [] },
-            yAxis: { type: 'value' },
-            series: [],
-            graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'K线数据为空（免费源可能波动）', fill:'#97a7d3', fontSize:14 } }]
-          }, true);
-          chart2.setOption({ series: [], graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'MACD数据为空', fill:'#97a7d3', fontSize:14 } }] }, true);
+          // 保留上一帧图表，避免“空白闪烁”；仅在首次无数据时给提示
+          const opt = chart.getOption && chart.getOption();
+          const hasSeries = opt && Array.isArray(opt.series) && opt.series.length;
+          if (!hasSeries) {
+            chart.setOption({
+              xAxis: { type: 'category', data: [] },
+              yAxis: { type: 'value' },
+              series: [],
+              graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'K线数据为空（免费源可能波动）', fill:'#97a7d3', fontSize:14 } }]
+            }, true);
+            chart2.setOption({ series: [], graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'MACD数据为空', fill:'#97a7d3', fontSize:14 } }] }, true);
+          }
           return;
         }
         const x = kl.map(k => {
@@ -889,6 +970,7 @@
           lastRecoList = Array.isArray(data) ? data : [];
           renderRecoList(data);
           void enrichRecoListWithAnalysis(lastRecoList).catch(() => undefined);
+          nextRecoAt = Date.now() + Math.max(20_000, Number(cfg.recoRefreshSec) * 1000);
         } catch {
           recoMeta.textContent = '推荐更新失败（免费源可能波动）';
         }
