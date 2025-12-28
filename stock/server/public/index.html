@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A股实时数据同步与推荐（MVP）</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "PingFang SC", "Microsoft YaHei"; margin: 0; background: #0b1020; color: #e7ecff; min-height: 100vh; height: auto; display:flex; flex-direction:column; overflow:auto; }
+      header { padding: 12px 16px; border-bottom: 1px solid #1f2a4a; display:flex; gap:12px; align-items:center; justify-content:space-between; }
+      header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+      main { display: grid; grid-template-columns: 360px 1fr; gap: 12px; padding: 12px; flex: 1; min-height: 0; align-items: stretch; overflow:auto; }
+      .card { background: #0f1730; border: 1px solid #1f2a4a; border-radius: 10px; overflow: hidden; }
+      .card .hd { padding: 10px 12px; border-bottom: 1px solid #1f2a4a; font-weight: 650; color: #cfe0ff; display:flex; justify-content:space-between; align-items:center; }
+      .card .bd { padding: 10px 12px; }
+      input, button { background:#0b1020; border:1px solid #2a3a66; color:#e7ecff; border-radius:8px; padding:8px 10px; }
+      button { cursor:pointer; }
+      table { width:100%; border-collapse: collapse; }
+      td, th { padding: 8px 6px; border-bottom: 1px solid #1f2a4a; font-size: 12px; }
+      tr:hover { background: rgba(255,255,255,0.04); }
+      .muted { color: #97a7d3; font-size: 12px; }
+      .row { display:flex; gap:8px; align-items:center; }
+      #chart { flex: 1; min-height: 60px; height: auto; }
+      #chart2 { flex: 0 0 50px; height: 50px; margin-top: 10px; }
+      #recoReason { white-space: pre-line; }
+      .split { display:grid; grid-template-columns: 1fr; gap: 12px; height: 100%; }
+      .leftCol { display:flex; flex-direction:column; height: 100%; }
+      .leftCol .bd { flex: 1; display:flex; min-height: 0; }
+      .recoCard { display:flex; flex-direction:column; height: 100%; }
+      .recoCard .bd { flex: 1; display:flex; flex-direction:column; }
+      .recoList { flex: 1; overflow:auto; }
+      .rightCol { display:flex; flex-direction:column; height: 100%; }
+      .rightCol .bd { flex: 1; min-height: 0; display:flex; flex-direction:column; }
+      .rightInfo { display:flex; flex-direction:column; gap:8px; }
+      .rightText { padding: 10px 12px; border: 1px solid #1f2a4a; border-radius: 10px; background: rgba(255,255,255,0.02); max-height: 160px; overflow:auto; }
+      a { color:#bcd0ff; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .pill { font-size: 12px; border:1px solid #2a3a66; padding: 3px 8px; border-radius:999px; color:#bcd0ff; }
+      .warn { color: #ffcf7a; }
+      .nav { display:flex; gap:8px; align-items:center; }
+      .navBtn { border:1px solid #2a3a66; background:#0b1020; color:#cfe0ff; padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer; }
+      .navBtn:hover { background: rgba(255,255,255,0.04); }
+      .topbar { padding: 10px 12px; border-top: 1px solid #1f2a4a; display:flex; gap:10px; flex-wrap:wrap; align-items:stretch; }
+      .idxCard { border:1px solid #1f2a4a; background:#0f1730; border-radius:12px; padding:10px 12px; min-width: 168px; }
+      .idxName { font-size:12px; color:#cfe0ff; display:flex; justify-content:space-between; gap:8px; }
+      .idxPrice { font-size:18px; font-weight:700; margin-top:6px; }
+      .idxChg { margin-top:6px; font-size:12px; }
+      .up { color:#ff4d4f; }
+      .down { color:#3ddc97; }
+      .modalMask { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display:none; align-items:center; justify-content:center; padding: 16px; }
+      .modal { width: min(720px, 96vw); background:#0f1730; border:1px solid #1f2a4a; border-radius:12px; overflow:hidden; }
+      .modalHd { padding:10px 12px; border-bottom:1px solid #1f2a4a; display:flex; justify-content:space-between; align-items:center; color:#cfe0ff; font-weight:650; }
+      .modalBd { padding: 12px; }
+      .kv { display:grid; grid-template-columns: 180px 1fr; gap:10px; align-items:center; margin-bottom:10px; }
+      .kv label { color:#97a7d3; font-size:12px; }
+      .kv input { width: 100%; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="row" style="gap:10px;">
+        <h1>A股数据同步 + 推荐（免费弱实时源）</h1>
+        <span class="pill">推荐20只</span>
+        <span class="muted warn">仅供学习与研究，不构成投资建议</span>
+      </div>
+      <div class="nav">
+        <button class="navBtn" id="openSettings">设置</button>
+        <button class="navBtn" id="openStrategy">股票推荐策略</button>
+      </div>
+    </header>
+
+    <div class="topbar" id="idxTopbar">
+      <div class="muted" id="idxMeta" style="flex-basis:100%;">指数更新：—</div>
+    </div>
+
+    <main>
+      <section class="card leftCol">
+        <div class="hd">
+          <span>市场概览</span>
+          <span class="muted" id="meta">—</span>
+        </div>
+        <div class="bd">
+          <div class="split">
+            <div class="card recoCard" style="border-radius:10px;">
+              <div class="hd"><span>推荐股票（Top 20）</span><span class="muted" id="recoMeta">—</span></div>
+              <div class="bd">
+                <div class="muted" id="recoHot" style="margin-bottom:8px;">热点：—</div>
+                <div class="row" style="margin-bottom:10px;">
+                  <input id="recoKeywordInput" placeholder="输入关键字：如 AI / 芯片 / 降息 / 地缘冲突" style="flex:1" />
+                  <button id="recoKeywordBtn">确定</button>
+                </div>
+                <div class="muted" id="recoKeywordCountdown" style="margin-bottom:10px;">预分析倒计时：—</div>
+                <div class="row" style="margin-bottom:10px; flex-wrap:wrap;">
+                  <select id="recoSelect" style="flex:1; min-width:240px;"></select>
+                </div>
+                <div class="muted" id="recoPickMeta" style="margin-bottom:6px;">板块：— ｜ 推荐值：—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card rightCol">
+        <div class="hd">
+          <span id="title">个股/指数 行情</span>
+          <span class="muted" id="sub">—</span>
+        </div>
+        <div class="bd">
+          <div class="rightInfo">
+            <div class="row" style="gap:10px; flex-wrap:wrap;">
+              <span class="pill" id="quoteOpen">开：—</span>
+              <span class="pill" id="quoteHigh">高：—</span>
+              <span class="pill" id="quoteLow">低：—</span>
+              <span class="pill" id="quotePrev">昨收：—</span>
+            </div>
+            <div class="row" style="gap:10px; flex-wrap:wrap;">
+              <span class="pill" id="recoEntry">入仓：—</span>
+              <span class="pill" id="recoExit">出仓：—</span>
+              <span class="pill" id="recoRisk">风险：—</span>
+            </div>
+            <div class="muted rightText" id="recoReason">推荐理由：—</div>
+          </div>
+          <div id="chart"></div>
+          <div id="chart2"></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="modalMask" id="settingsMask">
+      <div class="modal">
+        <div class="modalHd"><span>设置</span><button class="navBtn" id="closeSettings">关闭</button></div>
+        <div class="modalBd">
+          <div class="kv">
+            <label>推荐列表刷新间隔（秒）</label>
+            <input id="cfgRecoRefresh" placeholder="例如：60" />
+          </div>
+          <div class="kv">
+            <label>指数刷新间隔（秒）</label>
+            <input id="cfgIdxRefresh" placeholder="例如：20" />
+          </div>
+          <div class="kv">
+            <label>个股/图表刷新间隔（秒）</label>
+            <input id="cfgSymbolRefresh" placeholder="例如：30" />
+          </div>
+          <div class="row" style="justify-content:flex-end; margin-top:12px;">
+            <button class="navBtn" id="saveSettings">保存</button>
+          </div>
+          <div class="muted" style="margin-top:10px;">提示：为避免免费源被限流，刷新频率不建议设置过快。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modalMask" id="strategyMask">
+      <div class="modal">
+        <div class="modalHd"><span>股票推荐策略说明（示例）</span><button class="navBtn" id="closeStrategy">关闭</button></div>
+        <div class="modalBd">
+          <div class="muted" style="line-height:1.7;">
+            1）优先使用日K+MACD计算推荐价位与理由；\n
+            2）若免费源波动导致日K不足，则降级为基于现价的示例推荐；\n
+            3）后台会聚合公开RSS提取高频主题关键词，用于增强推荐解释；\n
+            4）所有内容仅供学习研究，不构成投资建议。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const titleEl = document.getElementById('title');
+      const subEl = document.getElementById('sub');
+      const metaEl = document.getElementById('meta');
+
+      const idxTopbar = document.getElementById('idxTopbar');
+      const idxMeta = document.getElementById('idxMeta');
+
+      const recoMeta = document.getElementById('recoMeta');
+      const recoHot = document.getElementById('recoHot');
+      const recoKeywordInput = document.getElementById('recoKeywordInput');
+      const recoKeywordBtn = document.getElementById('recoKeywordBtn');
+      const recoKeywordCountdown = document.getElementById('recoKeywordCountdown');
+      const recoEntry = document.getElementById('recoEntry');
+      const recoExit = document.getElementById('recoExit');
+      const recoRisk = document.getElementById('recoRisk');
+      const recoReason = document.getElementById('recoReason');
+
+      const recoSelect = document.getElementById('recoSelect');
+      const recoPickMeta = document.getElementById('recoPickMeta');
+
+      const quoteOpen = document.getElementById('quoteOpen');
+      const quoteHigh = document.getElementById('quoteHigh');
+      const quoteLow = document.getElementById('quoteLow');
+      const quotePrev = document.getElementById('quotePrev');
+
+      const chart = echarts.init(document.getElementById('chart'));
+      const chart2 = echarts.init(document.getElementById('chart2'));
+
+      let currentSymbol = null;
+      let refreshTimer = null;
+      let recoTimer = null;
+      let idxTimer = null;
+
+      const klineCache = new Map();
+
+      const settingsMask = document.getElementById('settingsMask');
+      const strategyMask = document.getElementById('strategyMask');
+      const openSettings = document.getElementById('openSettings');
+      const closeSettings = document.getElementById('closeSettings');
+      const saveSettings = document.getElementById('saveSettings');
+      const openStrategy = document.getElementById('openStrategy');
+      const closeStrategy = document.getElementById('closeStrategy');
+
+      const cfgRecoRefresh = document.getElementById('cfgRecoRefresh');
+      const cfgIdxRefresh = document.getElementById('cfgIdxRefresh');
+      const cfgSymbolRefresh = document.getElementById('cfgSymbolRefresh');
+
+      const CFG_KEY = 'stock_mvp_cfg_v1';
+      const defaultCfg = { recoRefreshSec: 120, idxRefreshSec: 20, symbolRefreshSec: 30 };
+      function loadCfg() {
+        try {
+          const raw = localStorage.getItem(CFG_KEY);
+          if (!raw) return { ...defaultCfg };
+          const obj = JSON.parse(raw);
+          return {
+            recoRefreshSec: Number(obj.recoRefreshSec ?? defaultCfg.recoRefreshSec),
+            idxRefreshSec: Number(obj.idxRefreshSec ?? defaultCfg.idxRefreshSec),
+            symbolRefreshSec: Number(obj.symbolRefreshSec ?? defaultCfg.symbolRefreshSec)
+          };
+        } catch {
+          return { ...defaultCfg };
+        }
+      }
+
+      async function enrichRecoListWithAnalysis(items) {
+        const arr = Array.isArray(items) ? items.slice(0, 20) : [];
+        if (!arr.length) return;
+        const concurrency = 4;
+        for (let i = 0; i < arr.length; i += concurrency) {
+          const batch = arr.slice(i, i + concurrency);
+          const results = await Promise.all(
+            batch.map(async (it) => {
+              const code = String(it.code || '');
+              if (!code) return null;
+              try {
+                const r = await fetchJSONWithTimeout(`/api/reco?code=${encodeURIComponent(code)}&limit=200`, 18000);
+                if (r && r.data) {
+                  it.reco = r.data;
+                }
+              } catch {
+                // ignore
+              }
+              return it;
+            })
+          );
+          void results;
+          // 每批次完成后刷新一次：让 score/排序逐步变“真实分析”
+          lastRecoList = arr;
+          renderRecoList(lastRecoList);
+        }
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      let lastRecoList = [];
+
+      function scoreInt(v) {
+        const n = Number(v);
+        if (!Number.isFinite(n)) return null;
+        return Math.max(1, Math.round(n));
+      }
+
+      function renderRecoSelect(data) {
+        if (!Array.isArray(data) || data.length === 0) {
+          recoSelect.innerHTML = `<option value="">暂无推荐数据</option>`;
+          if (recoPickMeta) recoPickMeta.textContent = '板块：— ｜ 推荐值：—';
+          return;
+        }
+        const sorted = data.slice().sort((a, b) => Number((b.reco && b.reco.score) || 0) - Number((a.reco && a.reco.score) || 0));
+        recoSelect.innerHTML = sorted
+          .slice(0, 20)
+          .map((it, idx) => {
+            const sInt = scoreInt(it?.reco?.score);
+            const label = `${idx + 1}. ${it.name || ''} ${it.code || ''}${sInt ? '  推荐值' + sInt : ''}`;
+            return `<option value="${escapeHtml(it.code)}">${escapeHtml(label)}</option>`;
+          })
+          .join('');
+
+        // 默认选中第一只
+        if (!recoSelect.value && sorted[0]?.code) recoSelect.value = String(sorted[0].code);
+        const pick = sorted.find((x) => String(x.code) === String(recoSelect.value)) || sorted[0];
+        setRecoPick(pick);
+      }
+
+      function setRecoPick(it) {
+        if (!it) {
+          if (recoPickMeta) recoPickMeta.textContent = '板块：— ｜ 推荐值：—';
+          return;
+        }
+        const sector = (it.quote && it.quote.sector) ? String(it.quote.sector) : '—';
+        const sInt = scoreInt(it?.reco?.score);
+        if (recoPickMeta) recoPickMeta.textContent = `板块：${sector} ｜ 推荐值：${sInt == null ? '—' : sInt}`;
+      }
+
+      recoSelect.addEventListener('change', () => {
+        const code = String(recoSelect.value || '');
+        if (!code) return;
+        const it = (Array.isArray(lastRecoList) ? lastRecoList : []).find((x) => String(x.code) === code) || null;
+        setRecoPick(it);
+        if (it) setRightDetailFromRecoTop(it);
+        void fetchJSONWithTimeout(`/api/reco?code=${encodeURIComponent(code)}&limit=200`, 18000)
+          .then((r) => {
+            if (r && r.data) {
+              setReco(r.data);
+            }
+          })
+          .catch(() => undefined);
+        void loadOne(code, it?.name || '', 'stock');
+      });
+
+      async function runRecoKeyword() {
+        const q = String(recoKeywordInput.value || '').trim();
+        if (!q) return;
+
+        const estSec = Math.max(5, Number(localStorage.getItem('reco_kw_est_sec') || 18));
+        let left = estSec;
+        recoKeywordCountdown.textContent = `预分析倒计时：${left}s`;
+        recoKeywordBtn.disabled = true;
+        recoKeywordInput.disabled = true;
+
+        const t0 = Date.now();
+        const timer = setInterval(() => {
+          left -= 1;
+          recoKeywordCountdown.textContent = left > 0 ? `预分析倒计时：${left}s` : '预分析倒计时：计算中…';
+        }, 1000);
+
+        try {
+          recoMeta.textContent = '分析中…';
+          const resp = await fetch('/api/reco/keyword', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ q, limit: 20 })
+          });
+          const r = await resp.json();
+          const data = r.data || [];
+          const kws = (r.meta && r.meta.keywords) ? r.meta.keywords : [];
+          recoMeta.textContent = `数量：${data.length}`;
+          recoHot.textContent = `关键字：${q}；热点：${kws.length ? kws.join(' / ') : '—'}`;
+          lastRecoList = Array.isArray(data) ? data : [];
+          renderRecoList(data);
+          void enrichRecoListWithAnalysis(lastRecoList).catch(() => undefined);
+
+          const took = Math.max(1, Math.round((Date.now() - t0) / 1000));
+          localStorage.setItem('reco_kw_est_sec', String(Math.min(60, Math.max(5, took))));
+          recoKeywordCountdown.textContent = `预分析倒计时：完成（${took}s）`;
+        } catch {
+          recoKeywordCountdown.textContent = '预分析倒计时：失败（稍后重试）';
+        } finally {
+          clearInterval(timer);
+          recoKeywordBtn.disabled = false;
+          recoKeywordInput.disabled = false;
+        }
+      }
+
+      recoKeywordBtn.addEventListener('click', () => void runRecoKeyword());
+      recoKeywordInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') void runRecoKeyword();
+      });
+
+      function scheduleTimers() {
+        if (recoTimer) clearInterval(recoTimer);
+        recoTimer = setInterval(loadRecoTop, Math.max(20_000, Number(cfg.recoRefreshSec) * 1000));
+
+        if (idxTimer) clearInterval(idxTimer);
+        idxTimer = setInterval(loadIndexQuotesOnce, Math.max(15_000, Number(cfg.idxRefreshSec) * 1000));
+      }
+
+      openSettings.addEventListener('click', () => {
+        cfgRecoRefresh.value = String(cfg.recoRefreshSec);
+        cfgIdxRefresh.value = String(cfg.idxRefreshSec);
+        cfgSymbolRefresh.value = String(cfg.symbolRefreshSec);
+        settingsMask.style.display = 'flex';
+      });
+      closeSettings.addEventListener('click', () => {
+        settingsMask.style.display = 'none';
+      });
+      saveSettings.addEventListener('click', () => {
+        const next = {
+          recoRefreshSec: Math.max(20, Number(cfgRecoRefresh.value || cfg.recoRefreshSec)),
+          idxRefreshSec: Math.max(15, Number(cfgIdxRefresh.value || cfg.idxRefreshSec)),
+          symbolRefreshSec: Math.max(10, Number(cfgSymbolRefresh.value || cfg.symbolRefreshSec))
+        };
+        cfg = next;
+        saveCfg(cfg);
+        settingsMask.style.display = 'none';
+        scheduleTimers();
+      });
+
+      openStrategy.addEventListener('click', () => {
+        strategyMask.style.display = 'flex';
+      });
+      closeStrategy.addEventListener('click', () => {
+        strategyMask.style.display = 'none';
+      });
+
+      function saveCfg(cfg) {
+        localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+      }
+
+      let cfg = loadCfg();
+
+      async function fetchJSON(url, opt) {
+        const r = await fetch(url, opt);
+        return await r.json();
+      }
+
+      async function fetchJSONWithTimeout(url, timeoutMs = 12000, opt) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const r = await fetch(url, { ...(opt || {}), signal: controller.signal });
+          return await r.json();
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      function fmt2(n) {
+        if (n == null || !Number.isFinite(Number(n))) return '—';
+        return Number(n).toFixed(2);
+      }
+
+      function fmtPct(n) {
+        if (n == null || !Number.isFinite(Number(n))) return '—';
+        const v = Number(n);
+        const s = v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2);
+        return `${s}%`;
+      }
+
+      function clsByPct(pct) {
+        if (pct == null || !Number.isFinite(Number(pct))) return '';
+        return Number(pct) >= 0 ? 'up' : 'down';
+      }
+
+      function setRightDetailFromRecoTop(item) {
+        if (!item) {
+          setReco(null);
+          setQuoteMore(null);
+          subEl.textContent = '—';
+          return;
+        }
+        const q = item.quote || null;
+        const r = item.reco || null;
+        setReco(r);
+        setQuoteMore(q);
+        if (q) {
+          const pct = q.pct ?? null;
+          const cls = clsByPct(pct);
+          const price = q.price ?? null;
+          const prev = q.prevClose ?? null;
+          const chg = price != null && prev != null ? Number((price - prev).toFixed(2)) : null;
+          subEl.innerHTML = `<span class="${cls}">${fmt2(price)}  ${chg == null ? '—' : (chg >= 0 ? '+' + fmt2(chg) : fmt2(chg))}  ${fmtPct(pct)}</span>  <span class="muted">更新时间：${q.ts ? new Date(q.ts).toLocaleString() : '—'}</span>`;
+        } else {
+          subEl.textContent = '报价获取失败（免费源可能波动）';
+        }
+      }
+
+      function renderIndexCards(items) {
+        Array.from(idxTopbar.querySelectorAll('.idxCard[data-symbol]')).forEach(x => x.remove());
+        const now = new Date().toLocaleTimeString();
+        idxMeta.textContent = `更新：${now}`;
+
+        (items || []).forEach(it => {
+          const q = it.quote || {};
+          const price = q.price ?? null;
+          const prev = q.prevClose ?? null;
+          const chg = (price != null && prev != null) ? Number((price - prev).toFixed(2)) : null;
+          const pct = q.pct ?? null;
+          const cls = (pct != null && pct >= 0) ? 'up' : 'down';
+
+          const div = document.createElement('div');
+          div.className = 'idxCard';
+          div.setAttribute('data-symbol', it.symbol);
+          div.innerHTML = `
+            <div class="idxName"><span>${it.name}</span><span class="muted">${it.symbol}</span></div>
+            <div class="idxPrice ${cls}">${price ?? '—'}</div>
+            <div class="idxChg ${cls}">${chg ?? '—'}  (${pct ?? '—'}%)</div>
+          `;
+          idxTopbar.appendChild(div);
+        });
+      }
+
+      async function loadIndexQuotesOnce() {
+        if (!idxTopbar) return;
+        try {
+          const r = await fetchJSONWithTimeout('/api/index/quotes', 12000);
+          renderIndexCards(r.data || []);
+        } catch {
+          if (idxMeta) idxMeta.textContent = '指数更新失败（免费源可能波动）';
+        }
+      }
+
+      function setQuoteMore(q) {
+        if (!q) {
+          quoteOpen.textContent = '开：—';
+          quoteHigh.textContent = '高：—';
+          quoteLow.textContent = '低：—';
+          quotePrev.textContent = '昨收：—';
+          return;
+        }
+        quoteOpen.textContent = `开：${q.open ?? '—'}`;
+        quoteHigh.textContent = `高：${q.high ?? '—'}`;
+        quoteLow.textContent = `低：${q.low ?? '—'}`;
+        quotePrev.textContent = `昨收：${q.prevClose ?? '—'}`;
+      }
+
+      function setReco(reco) {
+        if (!reco) {
+          recoEntry.textContent = '入仓：—';
+          recoExit.textContent = '出仓：—';
+          recoRisk.textContent = '风险：—';
+          recoReason.textContent = '推荐理由：—';
+          return;
+        }
+        recoEntry.textContent = `入仓：${reco.entry}`;
+        recoExit.textContent = `出仓：${reco.exit}`;
+        recoRisk.textContent = `风险：${reco.risk}`;
+        const summary = reco.summary ? `摘要：${reco.summary}` : '';
+        const sig = Array.isArray(reco.signals) ? reco.signals.map(s => `${s.label}:${s.value}`).join('；') : '';
+        const tri = Array.isArray(reco.triggers) ? reco.triggers.join('；') : '';
+        const risk = Array.isArray(reco.risks) ? reco.risks.join('；') : '';
+        const news = Array.isArray(reco.newsKeywords) && reco.newsKeywords.length ? `热点：${reco.newsKeywords.join(' / ')}` : '';
+        const parts = [summary, news, sig ? `信号：${sig}` : '', tri ? `触发：${tri}` : '', risk ? `风险：${risk}` : '', reco.reason ? `原始说明：${reco.reason}` : '']
+          .filter(Boolean)
+          .join('\n');
+        recoReason.textContent = parts ? parts : `推荐理由：${reco.reason ?? '—'}`;
+      }
+
+      function renderKline(payload) {
+        const kl = payload.klines || [];
+        const macd = payload.macd || [];
+
+        if (!kl.length) {
+          chart.hideLoading();
+          chart2.hideLoading();
+          chart.setOption({
+            xAxis: { type: 'category', data: [] },
+            yAxis: { type: 'value' },
+            series: [],
+            graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'K线数据为空（免费源可能波动）', fill:'#97a7d3', fontSize:14 } }]
+          }, true);
+          chart2.setOption({ series: [], graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'MACD数据为空', fill:'#97a7d3', fontSize:14 } }] }, true);
+          return;
+        }
+        const x = kl.map(k => {
+          const d = new Date(k.ts);
+          const mm = String(d.getMonth()+1).padStart(2,'0');
+          const dd = String(d.getDate()).padStart(2,'0');
+          return `${d.getFullYear()}-${mm}-${dd}`;
+        });
+        const ohlc = kl.map(k => [k.open, k.close, k.low, k.high]);
+
+        chart.setOption({
+          backgroundColor: 'transparent',
+          grid: { left: 40, right: 18, top: 10, bottom: 30 },
+          xAxis: { type:'category', data: x, axisLabel:{ color:'#97a7d3' }, axisLine:{ lineStyle:{ color:'#2a3a66' } } },
+          yAxis: { scale:true, axisLabel:{ color:'#97a7d3' }, splitLine:{ lineStyle:{ color:'#1f2a4a' } } },
+          tooltip: { trigger:'axis', axisPointer:{ type:'cross' } },
+          dataZoom: [
+            { type:'inside', xAxisIndex: 0 },
+            { type:'slider', xAxisIndex: 0, height: 18, bottom: 6, borderColor:'#1f2a4a', textStyle:{ color:'#97a7d3' } }
+          ],
+          series: [{
+            type: 'candlestick',
+            data: ohlc,
+            itemStyle: {
+              color: '#ff4d4f',
+              color0: '#3ddc97',
+              borderColor: '#ff4d4f',
+              borderColor0: '#3ddc97'
+            }
+          }]
+        });
+
+        chart2.setOption({
+          backgroundColor: 'transparent',
+          grid: { left: 40, right: 18, top: 10, bottom: 30 },
+          xAxis: { type:'category', data: x, axisLabel:{ color:'#97a7d3' }, axisLine:{ lineStyle:{ color:'#2a3a66' } } },
+          yAxis: { scale:true, axisLabel:{ color:'#97a7d3' }, splitLine:{ lineStyle:{ color:'#1f2a4a' } } },
+          tooltip: { trigger:'axis', axisPointer:{ type:'line' } },
+          legend: { textStyle:{ color:'#cfe0ff' } },
+          dataZoom: [
+            { type:'inside', xAxisIndex: 0 },
+            { type:'slider', xAxisIndex: 0, height: 18, bottom: 6, borderColor:'#1f2a4a', textStyle:{ color:'#97a7d3' } }
+          ],
+          series: [
+            { name:'DIF', type:'line', showSymbol:false, data: macd.map(m=>m.dif), lineStyle:{ width:1, color:'#6ea8fe' } },
+            { name:'DEA', type:'line', showSymbol:false, data: macd.map(m=>m.dea), lineStyle:{ width:1, color:'#f783ac' } },
+            { name:'MACD', type:'bar', data: macd.map(m=>m.macd), itemStyle:{ color:'#ffd43b' } }
+          ]
+        });
+
+        requestAnimationFrame(() => {
+          try { chart.resize(); } catch {}
+          try { chart2.resize(); } catch {}
+        });
+      }
+
+      async function loadRecoTop() {
+        try {
+          recoMeta.textContent = '加载中…';
+          const r = await fetchJSONWithTimeout('/api/reco/top?limit=20', 18000);
+          const data = r.data || [];
+          const kws = (r.meta && r.meta.keywords) ? r.meta.keywords : [];
+          recoMeta.textContent = `数量：${data.length}`;
+          recoHot.textContent = `热点：${kws.length ? kws.join(' / ') : '—'}`;
+          lastRecoList = Array.isArray(data) ? data : [];
+          renderRecoList(data);
+          void enrichRecoListWithAnalysis(lastRecoList).catch(() => undefined);
+        } catch {
+          recoMeta.textContent = '推荐更新失败（免费源可能波动）';
+        }
+      }
+
+      async function loadOne(symbolOrCode, name, kind) {
+        currentSymbol = { v: symbolOrCode, kind, name: name || '' };
+        titleEl.textContent = `${symbolOrCode}${name ? ' ' + name : ''}`;
+        metaEl.textContent = `刷新：${new Date().toLocaleTimeString()}`;
+
+        if (refreshTimer) {
+          clearInterval(refreshTimer);
+          refreshTimer = null;
+        }
+
+        async function refreshOnce() {
+          if (!currentSymbol) return;
+
+          chart.showLoading('default', { text: '加载K线…' });
+          chart2.showLoading('default', { text: '加载MACD…' });
+
+          const code = encodeURIComponent(currentSymbol.v);
+          const now = Date.now();
+          const cached = klineCache.get(currentSymbol.v);
+
+          const quoteP = fetchJSONWithTimeout(`/api/quote?code=${code}`, 12000).catch(() => ({ data: null }));
+
+          const klineP = (cached && now - cached.ts < 45_000)
+            ? Promise.resolve({ data: cached.data })
+            : fetchJSONWithTimeout(`/api/kline?code=${code}&limit=120`, 18000)
+                .then((x) => {
+                  if (x?.data) klineCache.set(currentSymbol.v, { ts: Date.now(), data: x.data });
+                  return x;
+                })
+                .catch(() => ({ data: null }));
+
+          const recoP = fetchJSONWithTimeout(`/api/reco?code=${code}&limit=200`, 18000).catch(() => ({ data: null }));
+
+          const [q, kl, reco] = await Promise.all([quoteP, klineP, recoP]);
+
+          if (q.data) {
+            const pct = q.data.pct ?? null;
+            const cls = clsByPct(pct);
+            const price = q.data.price ?? null;
+            const prev = q.data.prevClose ?? null;
+            const chg = (price != null && prev != null) ? Number((price - prev).toFixed(2)) : null;
+            subEl.innerHTML = `<span class="${cls}">${fmt2(price)}  ${chg == null ? '—' : (chg >= 0 ? '+' + fmt2(chg) : fmt2(chg))}  ${fmtPct(pct)}</span>  <span class="muted">更新时间：${q.data.ts ? new Date(q.data.ts).toLocaleString() : '—'}</span>`;
+            setQuoteMore(q.data);
+          } else {
+            subEl.textContent = '报价获取失败（免费源可能波动）';
+            setQuoteMore(null);
+          }
+
+          const kData = kl && kl.data ? kl.data : null;
+          const kEmpty = !kData || !Array.isArray(kData.klines) || kData.klines.length === 0;
+          if (!kEmpty) {
+            renderKline(kData);
+          } else {
+            // 后端会后台补拉缓存：这里做一次短延迟重试，提升首次命中率
+            chart.showLoading('default', { text: 'K线补拉中…' });
+            chart2.showLoading('default', { text: 'MACD补拉中…' });
+            await new Promise(r => setTimeout(r, 1500));
+            const retry = await fetchJSONWithTimeout(`/api/kline?code=${code}&limit=120`, 18000).catch(() => ({ data: null }));
+            if (retry && retry.data && Array.isArray(retry.data.klines) && retry.data.klines.length) {
+              klineCache.set(currentSymbol.v, { ts: Date.now(), data: retry.data });
+              renderKline(retry.data);
+            } else {
+              chart.hideLoading();
+              chart2.hideLoading();
+              renderKline({ klines: [], macd: [] });
+            }
+          }
+
+          setReco(reco.data);
+        }
+
+        await refreshOnce();
+        refreshTimer = setInterval(refreshOnce, Math.max(5_000, Number(cfg.symbolRefreshSec) * 1000));
+      }
+
+      window.addEventListener('resize', () => {
+        try { chart.resize(); } catch {}
+        try { chart2.resize(); } catch {}
+      });
+
+      void loadRecoTop();
+      void loadIndexQuotesOnce();
+      scheduleTimers();
+    </script>
+  </body>
+</html>
