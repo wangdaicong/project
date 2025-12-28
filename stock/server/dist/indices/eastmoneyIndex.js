@@ -9,6 +9,7 @@ function normPct(v) {
         return null;
     return Math.abs(v) > 100 ? v / 100 : v;
 }
+const EASTMONEY_UT = 'fa5fd1943c7b386f172d6893dbfba10b';
 export async function getIndexQuote(secid, symbol) {
     const url = 'https://push2.eastmoney.com/api/qt/stock/get';
     const resp = await axios.get(url, {
@@ -51,8 +52,11 @@ export async function getIndexKlines(secid, symbol, limit) {
         timeout: 12000,
         params: {
             secid,
+            ut: EASTMONEY_UT,
             klt: 101,
             fqt: 1,
+            beg: 0,
+            end: 20500101,
             lmt: Math.max(10, Math.min(1000, limit)),
             fields1: 'f1,f2,f3,f4,f5,f6',
             fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61'

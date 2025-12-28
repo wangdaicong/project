@@ -28,19 +28,12 @@
 
 ### MySQL（本地）
 
-默认连接：
-
-- host：`127.0.0.1`
-- port：`3306`
-- database：`stock`
-- user/password：`root` / `1234`
-
-可用环境变量覆盖：
+连接参数通过环境变量提供：
 
 - `MYSQL_HOST`
 - `MYSQL_PORT`
 - `MYSQL_USER`
-- `MYSQL_PASSWORD`（可继续使用明文）
+- `MYSQL_PASSWORD`
 - `MYSQL_PASSWORD_ENC`（可选：加密后的密码，AES-256-GCM）
 - `MYSQL_PASSWORD_KEY`（可选：解密密钥，base64，32字节）
 - `MYSQL_DB`

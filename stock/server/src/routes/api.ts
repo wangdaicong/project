@@ -332,6 +332,12 @@ apiRouter.get('/indices', (_req: Request, res: Response) => {
   res.json({ data: INDICES });
 });
 
+apiRouter.get('/themes', (_req: Request, res: Response) => {
+  res.json({
+    data: THEME_RULES.map((x) => ({ theme: x.theme, weight: x.weight, keywords: x.keywords, sectorHints: x.sectorHints }))
+  });
+});
+
 apiRouter.get('/index/quotes', async (_req: Request, res: Response) => {
   const out: Array<{ symbol: string; name: string; quote: any }> = [];
   for (const idx of INDICES) {
@@ -755,6 +761,166 @@ apiRouter.get('/reco/top', async (req: Request, res: Response) => {
       }))
     ).catch(() => undefined);
     res.json(payload);
+  }
+});
+
+apiRouter.get('/reco/theme', async (req: Request, res: Response) => {
+  const q = z
+    .object({
+      theme: z.string().min(1).max(60),
+      limit: z.coerce.number().int().min(1).max(50).default(20)
+    })
+    .safeParse(req.query);
+  if (!q.success) return res.status(400).json({ error: 'bad_request' });
+
+  const themeName = q.data.theme.trim();
+  const rule = THEME_RULES.find((x) => x.theme === themeName);
+  if (!rule) return res.status(404).json({ error: 'theme_not_found' });
+  const themeRule: ThemeRule = rule;
+
+  const seed: Array<{ code: string; name: string; market: string }> = [
+    { code: 'SH600519', name: '贵州茅台', market: 'SH' },
+    { code: 'SH601318', name: '中国平安', market: 'SH' },
+    { code: 'SH600036', name: '招商银行', market: 'SH' },
+    { code: 'SH600276', name: '恒瑞医药', market: 'SH' },
+    { code: 'SH600887', name: '伊利股份', market: 'SH' },
+    { code: 'SH601888', name: '中国中免', market: 'SH' },
+    { code: 'SH600030', name: '中信证券', market: 'SH' },
+    { code: 'SH601398', name: '工商银行', market: 'SH' },
+    { code: 'SZ000333', name: '美的集团', market: 'SZ' },
+    { code: 'SZ000651', name: '格力电器', market: 'SZ' },
+    { code: 'SZ000001', name: '平安银行', market: 'SZ' },
+    { code: 'SZ000858', name: '五粮液', market: 'SZ' },
+    { code: 'SZ002415', name: '海康威视', market: 'SZ' },
+    { code: 'SZ002594', name: '比亚迪', market: 'SZ' },
+    { code: 'SZ300750', name: '宁德时代', market: 'SZ' },
+    { code: 'SZ300059', name: '东方财富', market: 'SZ' }
+  ];
+
+  const topa = store.getSymbolsByIndexTag('TOPA');
+  const uniq = new Map<string, { code: string; name: string; market: string }>();
+  for (const s of seed) uniq.set(s.code, s);
+  for (const s of topa) {
+    const mktPrefix = s.market === 'SH' ? 'SH' : 'SZ';
+    const code = `${mktPrefix}${s.code}`;
+    if (!uniq.has(code)) uniq.set(code, { code, name: s.name, market: s.market });
+  }
+
+  const codes = Array.from(uniq.values()).map((x) => x.code);
+  const baseHot = extractHotNewsKeywords(5);
+  const themeKeywords = (themeRule.keywords || []).map((x) => String(x || '')).filter(Boolean);
+  const newsKeywords = Array.from(new Set([themeName, ...themeKeywords, ...baseHot].filter(Boolean))).slice(0, 10);
+
+  const t0 = Date.now();
+  const want = q.data.limit;
+  const timeBudgetMs = Number(process.env.RECO_THEME_TIME_BUDGET_MS ?? 12_000);
+  const candidateCodes = codes.slice(0, 160);
+  const concurrency = 18;
+  const quoteTimeoutMs = 2200;
+
+  function sectorHintHit(sector: string | null | undefined): boolean {
+    const sec = String(sector || '').toLowerCase();
+    if (!sec) return false;
+    return (themeRule.sectorHints || []).some((h) => sec.includes(String(h || '').toLowerCase()));
+  }
+
+  async function build() {
+    const deadline = t0 + timeBudgetMs;
+    const quotes = new Map<string, any>();
+    let fetched = 0;
+
+    void syncQuotes(provider, candidateCodes.slice(0, 120), 20).catch(() => undefined);
+
+    for (let i = 0; i < candidateCodes.length; i += concurrency) {
+      if (Date.now() >= deadline) break;
+      const batch = candidateCodes.slice(i, i + concurrency);
+      const remaining = Math.max(0, deadline - Date.now());
+
+      const results = await withTimeout(
+        Promise.all(
+          batch.map(async (code) => {
+            const cached = mapStoreQuote(store.getQuote(code));
+            if (cached && cached.price != null) {
+              if (!cached.sector && remaining > 700) {
+                try {
+                  const qt = await withTimeout(provider.getQuote(code), Math.min(quoteTimeoutMs, remaining));
+                  return { code, quote: qt ?? cached };
+                } catch {
+                  return { code, quote: cached };
+                }
+              }
+              return { code, quote: cached };
+            }
+            try {
+              const qt = await withTimeout(provider.getQuote(code), Math.min(quoteTimeoutMs, remaining));
+              return { code, quote: qt };
+            } catch {
+              return { code, quote: null };
+            }
+          })
+        ),
+        Math.min(2800, Math.max(600, remaining))
+      ).catch(() => [] as any);
+
+      for (const r of results) {
+        if (r.quote) quotes.set(r.code, r.quote);
+        fetched++;
+      }
+    }
+
+    const scored: Array<{ code: string; name: string; market: string; quote: any; reco: any; score: number }> = [];
+    for (const code of candidateCodes) {
+      const qx = quotes.get(code) ?? null;
+      if (!qx || qx.price == null) continue;
+
+      const k0 = store.getKlines(code, 160);
+      const k = (k0 || [])
+        .map((x: any) => ({ ts: Number(x.ts), close: Number(x.close) }))
+        .filter((x: any) => Number.isFinite(x.ts) && Number.isFinite(x.close));
+
+      const reco = makeReco(code, k, newsKeywords) ?? makeThemeFirstRecoFromQuote(code, qx, newsKeywords);
+
+      const hint = sectorHintHit(qx?.sector);
+      const bias = hint ? themeRule.weight * 8 : 0;
+      const meta = uniq.get(code);
+      scored.push({ code, name: meta?.name ?? '', market: meta?.market ?? '', quote: qx, reco, score: Number(reco?.score ?? 0) + bias });
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    const out: Array<{ code: string; name: string; market: string; quote: any; reco: any }> = scored
+      .slice(0, want)
+      .map(({ score: _s, ...rest }) => rest);
+    return { out, fetched, candidates: candidateCodes.length };
+  }
+
+  try {
+    const r = await withTimeout(build(), timeBudgetMs);
+    res.json({
+      data: r.out,
+      meta: {
+        theme: themeName,
+        keywords: newsKeywords,
+        sectorHints: themeRule.sectorHints ?? [],
+        tookMs: Date.now() - t0,
+        timeBudgetMs,
+        candidates: r.candidates,
+        fetched: r.fetched
+      }
+    });
+  } catch {
+    res.json({
+      data: [],
+      meta: {
+        theme: themeName,
+        keywords: newsKeywords,
+        sectorHints: themeRule.sectorHints ?? [],
+        tookMs: Date.now() - t0,
+        timeBudgetMs,
+        candidates: candidateCodes.length,
+        fetched: 0,
+        timeout: true
+      }
+    });
   }
 });
 

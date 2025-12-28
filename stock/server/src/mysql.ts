@@ -33,14 +33,18 @@ function resolveMysqlPassword(): string {
   if (enc && key) {
     return decryptAes256Gcm(enc, key);
   }
-  return process.env.MYSQL_PASSWORD ?? '1234';
+  const pwd = process.env.MYSQL_PASSWORD;
+  if (!pwd) throw new Error('MYSQL_PASSWORD_NOT_SET');
+  return pwd;
 }
 
 export function getMysqlConfigFromEnv(): MysqlConfig {
+  const user = process.env.MYSQL_USER;
+  if (!user) throw new Error('MYSQL_USER_NOT_SET');
   return {
     host: process.env.MYSQL_HOST ?? '127.0.0.1',
     port: Number(process.env.MYSQL_PORT ?? 3306),
-    user: process.env.MYSQL_USER ?? 'root',
+    user,
     password: resolveMysqlPassword(),
     database: process.env.MYSQL_DB ?? 'stock'
   };

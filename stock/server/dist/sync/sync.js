@@ -15,6 +15,12 @@ export async function refreshTopAShares(provider, limit = 800) {
 }
 export async function syncQuotes(provider, codes, batchSize = 20) {
     const toWrite = [];
+    const nameMap = new Map();
+    for (const s of store.getSymbolsByIndexTag('TOPA')) {
+        const key = `${s.market === 'SH' ? 'SH' : 'SZ'}${s.code}`;
+        if (!nameMap.has(key) && s.name)
+            nameMap.set(key, s.name);
+    }
     let count = 0;
     for (let i = 0; i < codes.length; i += batchSize) {
         const batch = codes.slice(i, i + batchSize);
@@ -31,6 +37,7 @@ export async function syncQuotes(provider, codes, batchSize = 20) {
                 continue;
             toWrite.push({
                 code: q.code,
+                name_cn: nameMap.get(q.code) ?? null,
                 ts: q.ts,
                 price: q.price,
                 open: q.open,
@@ -39,7 +46,8 @@ export async function syncQuotes(provider, codes, batchSize = 20) {
                 prev_close: q.prevClose,
                 volume: q.volume,
                 amount: q.amount,
-                pct: q.pct
+                pct: q.pct,
+                sector: q.sector ?? null
             });
             count++;
         }

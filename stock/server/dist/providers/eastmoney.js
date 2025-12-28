@@ -29,6 +29,7 @@ function normPct(v) {
     // 有的环境返回 0.32 表示 0.32%，也可能返回 32 表示 32%。
     return Math.abs(v) > 100 ? v / 100 : v;
 }
+const EASTMONEY_UT = 'fa5fd1943c7b386f172d6893dbfba10b';
 export class EastmoneyProvider {
     name = 'eastmoney_free';
     async getHS300Symbols() {
@@ -111,7 +112,7 @@ export class EastmoneyProvider {
                 secid: norm.secid,
                 fltt: 2,
                 invt: 2,
-                fields: 'f43,f44,f45,f46,f47,f48,f49,f50,f51,f52,f60,f170'
+                fields: 'f43,f44,f45,f46,f47,f48,f49,f50,f51,f52,f60,f127,f128,f170'
             }
         });
         const d = resp.data?.data;
@@ -124,6 +125,9 @@ export class EastmoneyProvider {
         const low = normPrice(d.f45);
         const prevClose = normPrice(d.f60);
         const pct = normPct(d.f170);
+        const industry = typeof d.f127 === 'string' ? d.f127.trim() : '';
+        const region = typeof d.f128 === 'string' ? d.f128.trim() : '';
+        const sector = (industry || region) ? [industry, region].filter(Boolean).join(' / ') : null;
         const volume = typeof d.f47 === 'number' ? d.f47 : null;
         const amount = typeof d.f48 === 'number' ? d.f48 : null;
         return {
@@ -136,7 +140,8 @@ export class EastmoneyProvider {
             prevClose,
             volume,
             amount,
-            pct
+            pct,
+            sector
         };
     }
     async getKlines(code, limit) {
@@ -149,8 +154,11 @@ export class EastmoneyProvider {
             timeout: 12000,
             params: {
                 secid: norm.secid,
+                ut: EASTMONEY_UT,
                 klt: 101, // 101=日线，1=1分钟等（视接口定义）
                 fqt: 1,
+                beg: 0,
+                end: 20500101,
                 lmt: Math.max(10, Math.min(1000, limit)),
                 fields1: 'f1,f2,f3,f4,f5,f6',
                 fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61'
