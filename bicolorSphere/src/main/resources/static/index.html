@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>双色球 - 趋势与预测</title>
+  <style>
+    :root{--bg:#0b1020;--card:rgba(255,255,255,.06);--bd:rgba(255,255,255,.10);--t:#e8ecff;--m:rgba(232,236,255,.70);--red:#ff4d4f;--blue:#3a7bff;--acc:#4f7cff}
+    html,body{height:100%;overflow-x:hidden}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--t)}
+    .wrap{max-width:none;width:100%;margin:0 auto;padding:12px;box-sizing:border-box;min-height:100vh;display:flex;flex-direction:column}
+    .top{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .title{font-size:20px;font-weight:700}
+    .sub{color:var(--m);font-size:12px}
+    .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:14px}
+    .row{display:grid;grid-template-columns:1fr;gap:14px;flex:1 1 auto;min-height:0}
+    .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{background:var(--acc);color:#fff;border:0;border-radius:10px;padding:10px 12px;cursor:pointer}
+    .btn.secondary{background:rgba(255,255,255,.10)}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    select,input{background:#fff;border:1px solid rgba(0,0,0,.18);color:#111;border-radius:10px;padding:10px 12px}
+    select option{color:#111}
+    .status{color:var(--m);font-size:12px}
+    .divider{height:1px;background:rgba(255,255,255,.10);margin:12px 0}
+    .balls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+    .ball{width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px}
+    .ball.red{background:var(--red)}
+    .ball.blue{background:var(--blue)}
+    .pick{padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;background:rgba(255,255,255,.06);margin-bottom:10px}
+
+    .trendCard{display:flex;flex-direction:column;min-height:0}
+    .tableHeadWrap{overflow:hidden;flex:0 0 auto;background:rgba(20,28,56,.95);border:1px solid rgba(255,255,255,.10);border-radius:12px 12px 0 0;min-height:44px}
+    .tableScrollTop{display:none}
+    .tableScrollTopInner{height:1px}
+    .tableBodyWrap{overflow:auto;background:rgba(0,0,0,.10);border:1px solid rgba(255,255,255,.10);border-top:0;border-radius:0 0 12px 12px;flex:1 1 auto;min-height:260px;scrollbar-gutter:stable both-edges;overflow-x:hidden}
+    /* hide horizontal scrollbar but keep horizontal scroll */
+    .tableBodyWrap::-webkit-scrollbar{height:0;width:8px}
+    .tableBodyWrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:8px}
+    table{border-collapse:collapse;width:max-content;min-width:100%;transform-origin:left top}
+    th,td{border:1px solid rgba(255,255,255,.10);text-align:center;font-size:11px;line-height:20px;height:20px;padding:0;white-space:nowrap}
+    thead th{background:rgba(20,28,56,.95)}
+    th.group{font-weight:700;font-size:12px;color:rgba(232,236,255,.92)}
+    th.sub{font-weight:600;color:rgba(232,236,255,.80)}
+    td.left{font-size:12px;color:rgba(232,236,255,.92);background:rgba(0,0,0,.15)}
+    td.week{width:40px}
+    td.missR{color:rgba(255,200,200,.85)}
+    td.missB{color:rgba(170,205,255,.90)}
+    td.missG{color:rgba(220,220,220,.55)}
+    .hit{width:16px;height:16px;border-radius:999px;margin:0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
+    .hit.r{background:var(--red)}
+    .hit.b{background:var(--blue)}
+
+    .modalMask{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
+    .modal{width:720px;max-width:calc(100vw - 28px);max-height:calc(100vh - 28px);background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+    .modalHd{background:var(--acc);color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between}
+    .modalHd .t{font-weight:700}
+    .modalBd{padding:12px;color:#111;max-height:calc(100vh - 150px);overflow:auto}
+    .modalFt{padding:12px 14px;border-top:1px solid rgba(0,0,0,.08);display:flex;justify-content:flex-end;gap:10px}
+    .btnGhost{background:#f1f1f1;color:#111;border:0;border-radius:10px;padding:10px 12px;cursor:pointer}
+    .modalBd .status{color:rgba(0,0,0,.60)}
+    .pick{background:#f6f7fb;border:1px solid rgba(0,0,0,.08)}
+    .formGrid{display:grid;grid-template-columns:1fr;gap:10px}
+    @media(min-width:860px){.formGrid{grid-template-columns:1fr 1fr}}
+    .modalBd select,.modalBd input{padding:8px 10px;border-radius:10px;font-size:12px}
+    .modalBd .status{font-size:12px;white-space:nowrap}
+    .modalForm{display:grid;grid-template-columns:84px 1fr 84px 1fr;gap:10px 12px;align-items:center}
+    .modalForm .lbl{color:rgba(0,0,0,.65);font-size:12px;white-space:nowrap;justify-self:end}
+    .modalForm input,.modalForm select{width:100%;box-sizing:border-box}
+    .modalForm .span2{grid-column:2 / 5}
+    .modalActions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .modalActions .status{color:rgba(0,0,0,.60)}
+    .statsTable{width:100%;border-collapse:collapse;font-size:12px;color:#111}
+    .statsTable th{background:#f4f6fb;color:#111;border-bottom:1px solid rgba(0,0,0,.10);padding:8px;text-align:left}
+    .statsTable td{padding:8px;border-bottom:1px solid rgba(0,0,0,.06);background:#fff}
+    .statsTable tr:nth-child(even) td{background:#fafbff}
+    .statsTable .num{text-align:right}
+    .statsSectionTitle{font-weight:700;margin:10px 0 6px 0;color:#111}
+    @media(max-width:760px){
+      .modalForm{grid-template-columns:84px 1fr;}
+      .modalForm .span2{grid-column:2 / 3}
+      .modalForm .lbl{justify-self:start}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">双色球趋势与预测</div>
+        <div class="sub">趋势图 + 一键同步 + 多策略预测（仅供娱乐）</div>
+      </div>
+      <div class="status" id="healthPill">loading...</div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn" id="syncBtn">同步数据</button>
+        <span class="status" id="syncStatus"></span>
+        <span style="flex:1 1 auto"></span>
+        <button class="btn" id="statsOpenBtn">统计</button>
+        <span class="status">最近N期</span>
+        <select id="latestN">
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+          <option value="300" selected>300</option>
+          <option value="500">500</option>
+        </select>
+        <button class="btn secondary" id="refreshBtn">刷新</button>
+        <button class="btn" id="predictOpenBtn">预测</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card trendCard">
+        <div class="toolbar" style="justify-content:space-between;">
+          <div style="font-weight:700;">开奖号码趋势表</div>
+          <div class="status">期号降序（最新在上）</div>
+        </div>
+        <div class="divider"></div>
+        <div class="tableScrollTop" id="tableScrollTop"><div class="tableScrollTopInner" id="tableScrollTopInner"></div></div>
+        <div class="tableHeadWrap" id="tableHeadWrap">
+          <table id="trendHeadTable"></table>
+        </div>
+        <div class="tableBodyWrap" id="tableBodyWrap">
+          <table id="trendBodyTable"></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="modalMask" id="predictMask">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modalHd">
+          <div class="t">预测</div>
+          <button class="btnGhost" id="predictClose">关闭</button>
+        </div>
+        <div class="modalBd">
+          <div class="modalForm">
+            <div class="lbl">策略</div>
+            <select id="strategy" class="span2">
+              <option value="frequency_top">热号优先</option>
+              <option value="omission_top">遗漏优先</option>
+              <option value="hybrid" selected>综合（热度+遗漏）</option>
+              <option value="weighted_random">加权随机</option>
+              <option value="zone_balanced">分区均衡（2:2:2）</option>
+              <option value="markov">马尔科夫链</option>
+              <option value="bayes">贝叶斯推理</option>
+              <option value="ml">机器学习（轻量）</option>
+            </select>
+
+            <div class="lbl">注数</div>
+            <input id="pickCount" value="5" />
+            <div class="lbl">重试</div>
+            <input id="maxTry" placeholder="默认120" />
+
+            <div class="lbl">和值</div>
+            <input id="minSum" placeholder="最小" />
+            <div class="lbl">和值</div>
+            <input id="maxSum" placeholder="最大" />
+
+            <div class="lbl">跨度</div>
+            <input id="minSpan" placeholder="最小" />
+            <div class="lbl">跨度</div>
+            <input id="maxSpan" placeholder="最大" />
+
+            <div class="lbl">奇数个数</div>
+            <input id="minOdd" placeholder="最小" />
+            <div class="lbl">奇数个数</div>
+            <input id="maxOdd" placeholder="最大" />
+
+            <div class="lbl">区间比</div>
+            <input id="zoneRatio" placeholder="如 2:2:2" />
+            <div class="lbl">红胆</div>
+            <input id="danReds" placeholder="如 1 8" />
+
+            <div class="lbl">红杀</div>
+            <input id="killReds" placeholder="如 3 16" />
+            <div class="lbl">蓝胆</div>
+            <input id="danBlues" placeholder="如 6 12" />
+
+            <div class="lbl">蓝杀</div>
+            <input id="killBlues" placeholder="如 1 16" />
+          </div>
+
+          <div class="modalActions">
+            <button class="btn" id="predictBtn">生成预测</button>
+            <button class="btn secondary" id="predictCopyBtn">复制第一注</button>
+            <span class="status" id="predictStatus"></span>
+          </div>
+          <div class="divider" style="background:rgba(0,0,0,.08);"></div>
+          <div id="predictResult"></div>
+        </div>
+        <div class="modalFt">
+          <button class="btnGhost" id="predictAgain">再来一注</button>
+          <button class="btn" id="predictOk">确定</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modalMask" id="statsMask">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modalHd">
+          <div class="t">统计</div>
+          <button class="btnGhost" id="statsClose">关闭</button>
+        </div>
+        <div class="modalBd">
+          <div class="status" id="statsMeta"></div>
+          <div class="divider" style="background:rgba(0,0,0,.08);"></div>
+          <div id="statsResult"></div>
+        </div>
+        <div class="modalFt">
+          <button class="btn" id="statsOk">确定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const api = (p) => p;
+
+  const elLatestN = document.getElementById('latestN');
+  const elSyncBtn = document.getElementById('syncBtn');
+  const elSyncStatus = document.getElementById('syncStatus');
+  const elRefreshBtn = document.getElementById('refreshBtn');
+  const elHealth = document.getElementById('healthPill');
+  const elPredictOpenBtn = document.getElementById('predictOpenBtn');
+  const elStatsOpenBtn = document.getElementById('statsOpenBtn');
+
+  const elStrategy = document.getElementById('strategy');
+  const elPickCount = document.getElementById('pickCount');
+  const elPredictBtn = document.getElementById('predictBtn');
+  const elPredictCopyBtn = document.getElementById('predictCopyBtn');
+  const elPredictStatus = document.getElementById('predictStatus');
+  const elPredictResult = document.getElementById('predictResult');
+
+  const elMinSum = document.getElementById('minSum');
+  const elMaxSum = document.getElementById('maxSum');
+  const elMinSpan = document.getElementById('minSpan');
+  const elMaxSpan = document.getElementById('maxSpan');
+  const elMinOdd = document.getElementById('minOdd');
+  const elMaxOdd = document.getElementById('maxOdd');
+  const elZoneRatio = document.getElementById('zoneRatio');
+  const elDanReds = document.getElementById('danReds');
+  const elKillReds = document.getElementById('killReds');
+  const elDanBlues = document.getElementById('danBlues');
+  const elKillBlues = document.getElementById('killBlues');
+  const elMaxTry = document.getElementById('maxTry');
+
+  const elPredictMask = document.getElementById('predictMask');
+  const elPredictClose = document.getElementById('predictClose');
+  const elPredictAgain = document.getElementById('predictAgain');
+  const elPredictOk = document.getElementById('predictOk');
+
+  const elStatsMask = document.getElementById('statsMask');
+  const elStatsClose = document.getElementById('statsClose');
+  const elStatsOk = document.getElementById('statsOk');
+  const elStatsMeta = document.getElementById('statsMeta');
+  const elStatsResult = document.getElementById('statsResult');
+
+  const elTableHeadWrap = document.getElementById('tableHeadWrap');
+  const elTableBodyWrap = document.getElementById('tableBodyWrap');
+  const elTableScrollTop = document.getElementById('tableScrollTop');
+  const elTableScrollTopInner = document.getElementById('tableScrollTopInner');
+
+  let lastTrend = null;
+  let lastPredict = null;
+
+  function pad2(n) {
+    const s = String(n);
+    return s.length === 1 ? '0' + s : s;
+  }
+
+  function setHealth(ok) {
+    elHealth.innerText = ok ? 'API: OK' : 'API: FAIL';
+  }
+
+  async function checkHealth() {
+    try {
+      const res = await fetch(api('/api/health'));
+      const data = await res.json();
+      setHealth(!!data.ok);
+    } catch (e) {
+      setHealth(false);
+    }
+  }
+
+  function weekdayFromDateStr(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const wd = d.getDay();
+    return wd === 0 ? '日' : (wd === 1 ? '一' : (wd === 2 ? '二' : (wd === 3 ? '三' : (wd === 4 ? '四' : (wd === 5 ? '五' : '六')))));
+  }
+
+  function statsForRow(reds) {
+    const r = (reds || []).slice().sort((a,b)=>a-b);
+    if (r.length !== 6) return {sum:'', span:'', zone:'', oe:''};
+    let sum = 0;
+    let odd = 0;
+    let z1 = 0, z2 = 0, z3 = 0;
+    for (let i = 0; i < 6; i++) {
+      const n = r[i];
+      sum += n;
+      if (n % 2 === 1) odd++;
+      if (n <= 11) z1++;
+      else if (n <= 22) z2++;
+      else z3++;
+    }
+    const span = r[5] - r[0];
+    return { sum: String(sum), span: String(span), zone: `${z1}:${z2}:${z3}`, oe: `${odd}:${6-odd}` };
+  }
+
+  function buildColgroup() {
+    const colgroup = document.createElement('colgroup');
+    // 2个左侧列 + 33红球 + 16蓝球 + 4统计列
+    const widths = [];
+    widths.push(78);
+    widths.push(42);
+    for (let i = 0; i < 33; i++) widths.push(18);
+    for (let i = 0; i < 16; i++) widths.push(18);
+    widths.push(44);
+    widths.push(44);
+    widths.push(54);
+    widths.push(54);
+    colgroup.innerHTML = widths.map(w => `<col style="width:${w}px">`).join('');
+    return colgroup;
+  }
+
+  function fitTrendTable() {
+    try {
+      const headTable = document.getElementById('trendHeadTable');
+      const bodyTable = document.getElementById('trendBodyTable');
+      if (!headTable || !bodyTable) return;
+      const containerW = elTableBodyWrap ? elTableBodyWrap.clientWidth : 0;
+      const contentW = bodyTable.scrollWidth || 0;
+      if (!containerW || !contentW) return;
+
+      const scale = Math.min(1, containerW / contentW);
+      headTable.style.transform = scale < 1 ? `scale(${scale})` : '';
+      bodyTable.style.transform = scale < 1 ? `scale(${scale})` : '';
+
+      // transform 会改变可视高度，但不改变布局高度；这里用缩放比反向补偿容器高度占用
+      if (scale < 1) {
+        const bodyH = bodyTable.offsetHeight;
+        if (bodyH) bodyTable.style.marginBottom = Math.max(0, Math.round(bodyH * (1 - scale))) + 'px';
+      } else {
+        bodyTable.style.marginBottom = '';
+      }
+    } catch (e) {
+    }
+  }
+
+  function buildHeader() {
+    const thead = document.createElement('thead');
+
+    const r1 = document.createElement('tr');
+    r1.innerHTML = `
+      <th class="group" rowspan="2">期号</th>
+      <th class="group" rowspan="2">星期</th>
+      <th class="group" colspan="11">一区</th>
+      <th class="group" colspan="11">二区</th>
+      <th class="group" colspan="11">三区</th>
+      <th class="group" colspan="16">蓝球</th>
+      <th class="group" rowspan="2">和值</th>
+      <th class="group" rowspan="2">跨度</th>
+      <th class="group" rowspan="2">区间比</th>
+      <th class="group" rowspan="2">奇偶比</th>
+    `;
+
+    const r2 = document.createElement('tr');
+    let ths = '';
+    for (let i = 1; i <= 33; i++) ths += `<th class="sub">${pad2(i)}</th>`;
+    for (let i = 1; i <= 16; i++) ths += `<th class="sub">${pad2(i)}</th>`;
+    r2.innerHTML = ths;
+
+    thead.appendChild(r1);
+    thead.appendChild(r2);
+    return thead;
+  }
+
+  function buildTable(trend) {
+    const headTable = document.getElementById('trendHeadTable');
+    const bodyTable = document.getElementById('trendBodyTable');
+    const drawNos0 = trend.drawNos || [];
+    const dates0 = trend.drawDates || [];
+    const reds0 = trend.reds || [];
+    const blues0 = trend.blues || [];
+
+    // 强制按期号降序排序（不依赖后端顺序）
+    const rows = [];
+    for (let i = 0; i < drawNos0.length; i++) {
+      rows.push({
+        drawNo: drawNos0[i],
+        drawDate: dates0[i],
+        reds: reds0[i] || [],
+        blue: blues0[i]
+      });
+    }
+    rows.sort((a, b) => {
+      const na = parseInt(String(a.drawNo || '0'), 10);
+      const nb = parseInt(String(b.drawNo || '0'), 10);
+      if (!isNaN(na) && !isNaN(nb) && na !== nb) return nb - na;
+      return String(b.drawNo || '').localeCompare(String(a.drawNo || ''));
+    });
+
+    const missRed = new Array(34);
+    const missBlue = new Array(17);
+    for (let i = 0; i < missRed.length; i++) missRed[i] = 0;
+    for (let i = 0; i < missBlue.length; i++) missBlue[i] = 0;
+
+    const tbody = document.createElement('tbody');
+
+    for (let row = 0; row < rows.length; row++) {
+      const tr = document.createElement('tr');
+
+      const r = rows[row];
+
+      const tdNo = document.createElement('td');
+      tdNo.className = 'left';
+      tdNo.innerText = String(r.drawNo || '');
+      tr.appendChild(tdNo);
+
+      const tdW = document.createElement('td');
+      tdW.className = 'left week';
+      tdW.innerText = weekdayFromDateStr(r.drawDate);
+      tr.appendChild(tdW);
+
+      const redSet = new Set(r.reds || []);
+      for (let n = 1; n <= 33; n++) {
+        const td = document.createElement('td');
+        if (redSet.has(n)) {
+          missRed[n] = 0;
+          td.innerHTML = `<div class="hit r">${pad2(n)}</div>`;
+        } else {
+          missRed[n] += 1;
+          td.innerText = String(missRed[n]);
+          td.className = (n <= 11) ? 'missR' : (n <= 22 ? 'missB' : 'missG');
+        }
+        tr.appendChild(td);
+      }
+
+      const blueHit = r.blue;
+      for (let n = 1; n <= 16; n++) {
+        const td = document.createElement('td');
+        if (blueHit === n) {
+          missBlue[n] = 0;
+          td.innerHTML = `<div class="hit b">${pad2(n)}</div>`;
+        } else {
+          missBlue[n] += 1;
+          td.innerText = String(missBlue[n]);
+          td.className = 'missB';
+        }
+        tr.appendChild(td);
+      }
+
+      const st = statsForRow(r.reds);
+      const t1 = document.createElement('td'); t1.innerText = st.sum; tr.appendChild(t1);
+      const t2 = document.createElement('td'); t2.innerText = st.span; tr.appendChild(t2);
+      const t3 = document.createElement('td'); t3.innerText = st.zone; tr.appendChild(t3);
+      const t4 = document.createElement('td'); t4.innerText = st.oe; tr.appendChild(t4);
+
+      tbody.appendChild(tr);
+    }
+
+    // Header table
+    headTable.innerHTML = '';
+    headTable.appendChild(buildColgroup());
+    headTable.appendChild(buildHeader());
+
+    // Body table (no thead)
+    bodyTable.innerHTML = '';
+    bodyTable.appendChild(buildColgroup());
+    bodyTable.appendChild(tbody);
+
+    requestAnimationFrame(() => {
+      fitTrendTable();
+      requestAnimationFrame(fitTrendTable);
+    });
+  }
+
+  function syncTopScroller() {
+    try {
+      if (elTableScrollTop && getComputedStyle(elTableScrollTop).display === 'none') return;
+      const w = elTableBodyWrap && elTableBodyWrap.scrollWidth ? elTableBodyWrap.scrollWidth : 0;
+      elTableScrollTopInner.style.width = w ? (w + 'px') : '0px';
+      elTableScrollTop.scrollLeft = elTableBodyWrap.scrollLeft;
+    } catch (e) {
+    }
+  }
+
+  async function loadTrend() {
+    const n = parseInt(elLatestN.value, 10) || 300;
+    elSyncStatus.innerText = '加载中...';
+    const res = await fetch(api(`/api/trend?latestN=${encodeURIComponent(n)}`));
+    const data = await res.json();
+    lastTrend = data;
+    buildTable(data);
+    elSyncStatus.innerText = `已加载 ${data.latestN} 期`;
+  }
+
+  function renderPicks(picks) {
+    if (!picks || !picks.length) {
+      elPredictResult.innerHTML = '<div class="status">暂无预测结果</div>';
+      return;
+    }
+    let html = '';
+    for (let i = 0; i < picks.length; i++) {
+      const p = picks[i];
+      const reds = (p.red || []).slice().sort((a,b)=>a-b);
+      html += '<div class="pick">';
+      html += `<div class="status">第 ${i+1} 注</div>`;
+      html += '<div class="balls" style="margin-top:8px;">';
+      for (let j = 0; j < reds.length; j++) html += `<span class="ball red">${pad2(reds[j])}</span>`;
+      html += `<span class="ball blue">${pad2(p.blue)}</span>`;
+      html += '</div></div>';
+    }
+    elPredictResult.innerHTML = html;
+  }
+
+  async function predict() {
+    const n = parseInt(elLatestN.value, 10) || 300;
+    const strategy = String(elStrategy.value || 'hybrid');
+    const count = Math.max(1, Math.min(20, parseInt(String(elPickCount.value || '5'), 10) || 5));
+    elPickCount.value = String(count);
+
+    const q = [];
+    q.push(`latestN=${encodeURIComponent(n)}`);
+    q.push(`strategy=${encodeURIComponent(strategy)}`);
+    q.push(`count=${encodeURIComponent(count)}`);
+
+    const addInt = (key, el) => {
+      const raw = el && el.value != null ? String(el.value).trim() : '';
+      if (!raw) return;
+      const v = parseInt(raw, 10);
+      if (!isNaN(v)) q.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+    };
+    const addStr = (key, el) => {
+      const raw = el && el.value != null ? String(el.value).trim() : '';
+      if (!raw) return;
+      q.push(`${encodeURIComponent(key)}=${encodeURIComponent(raw)}`);
+    };
+    addInt('minSum', elMinSum);
+    addInt('maxSum', elMaxSum);
+    addInt('minSpan', elMinSpan);
+    addInt('maxSpan', elMaxSpan);
+    addInt('minOdd', elMinOdd);
+    addInt('maxOdd', elMaxOdd);
+    addStr('zoneRatio', elZoneRatio);
+    addStr('danReds', elDanReds);
+    addStr('killReds', elKillReds);
+    addStr('danBlues', elDanBlues);
+    addStr('killBlues', elKillBlues);
+    addInt('maxTry', elMaxTry);
+
+    elPredictStatus.innerText = '生成中...';
+    elPredictBtn.disabled = true;
+    try {
+      const res = await fetch(api(`/api/predict?${q.join('&')}`));
+      const data = await res.json();
+      lastPredict = data;
+      renderPicks(data.picks || []);
+      elPredictStatus.innerText = '';
+    } finally {
+      elPredictBtn.disabled = false;
+    }
+  }
+
+  function openPredict() {
+    elPredictMask.style.display = 'flex';
+  }
+  function closePredict() {
+    elPredictMask.style.display = 'none';
+  }
+
+  function openStats() {
+    elStatsMask.style.display = 'flex';
+  }
+  function closeStats() {
+    elStatsMask.style.display = 'none';
+  }
+
+  function sortEntriesDesc(obj) {
+    const entries = Object.keys(obj || {}).map(k => ({ key: k, count: obj[k] }));
+    entries.sort((a, b) => (b.count - a.count));
+    return entries;
+  }
+
+  function renderFreqTable(title, entries, topN) {
+    const list = (entries || []).slice(0, topN);
+    if (!list.length) return '';
+    let html = '';
+    html += `<div class="statsSectionTitle">${title}</div>`;
+    html += '<table class="statsTable">';
+    html += '<thead><tr>';
+    html += '<th>项</th>';
+    html += '<th class="num">次数</th>';
+    html += '<th class="num">占比</th>';
+    html += '</tr></thead><tbody>';
+    const total = entries.reduce((s, x) => s + (x.count || 0), 0) || 1;
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i];
+      const pct = ((it.count || 0) * 100 / total).toFixed(1) + '%';
+      html += '<tr>';
+      html += `<td>${it.key}</td>`;
+      html += `<td class="num">${it.count}</td>`;
+      html += `<td class="num">${pct}</td>`;
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function computeStatsFromTrend(trend) {
+    const drawNos = (trend && trend.drawNos) ? trend.drawNos : [];
+    const redsArr = (trend && trend.reds) ? trend.reds : [];
+
+    const sumFreq = {};
+    const spanFreq = {};
+    const zoneFreq = {};
+    const oeFreq = {};
+
+    for (let i = 0; i < redsArr.length; i++) {
+      const reds = (redsArr[i] || []).slice().sort((a,b)=>a-b);
+      if (reds.length !== 6) continue;
+      const st = statsForRow(reds);
+      if (st.sum) sumFreq[st.sum] = (sumFreq[st.sum] || 0) + 1;
+      if (st.span) spanFreq[st.span] = (spanFreq[st.span] || 0) + 1;
+      if (st.zone) zoneFreq[st.zone] = (zoneFreq[st.zone] || 0) + 1;
+      if (st.oe) oeFreq[st.oe] = (oeFreq[st.oe] || 0) + 1;
+    }
+
+    const sumEntries = sortEntriesDesc(sumFreq);
+    const spanEntries = sortEntriesDesc(spanFreq);
+    const zoneEntries = sortEntriesDesc(zoneFreq);
+    const oeEntries = sortEntriesDesc(oeFreq);
+
+    return {
+      n: redsArr.length,
+      drawNoLatest: drawNos && drawNos.length ? drawNos[0] : '',
+      sumEntries,
+      spanEntries,
+      zoneEntries,
+      oeEntries
+    };
+  }
+
+  function renderStats() {
+    if (!lastTrend) {
+      elStatsMeta.innerText = '请先加载趋势数据';
+      elStatsResult.innerHTML = '<div class="status">暂无数据</div>';
+      return;
+    }
+    const s = computeStatsFromTrend(lastTrend);
+    elStatsMeta.innerText = `统计范围：最近 ${lastTrend.latestN || s.n} 期`;
+
+    let html = '';
+    html += renderFreqTable('和值（Top 15）', s.sumEntries, 15);
+    html += renderFreqTable('跨度（Top 15）', s.spanEntries, 15);
+    html += renderFreqTable('区间比（Top 15）', s.zoneEntries, 15);
+    html += renderFreqTable('奇偶比（Top 15）', s.oeEntries, 15);
+    elStatsResult.innerHTML = html || '<div class="status">暂无数据</div>';
+  }
+
+  async function syncMissing() {
+    elSyncBtn.disabled = true;
+    elSyncStatus.innerText = '同步中...';
+    try {
+      const res = await fetch(api('/api/sync/missing?maxPages=120&stopAfterNoInsertPages=3'), { method: 'POST' });
+      const data = await res.json();
+      elSyncStatus.innerText = `同步完成：scanned=${data.scannedPages}, inserted=${data.inserted}, errors=${(data.errors||[]).length}`;
+      await loadTrend();
+    } finally {
+      elSyncBtn.disabled = false;
+    }
+  }
+
+  async function copyFirstPick() {
+    const picks = (lastPredict && lastPredict.picks) ? lastPredict.picks : [];
+    if (!picks.length) {
+      elPredictStatus.innerText = '请先生成预测';
+      return;
+    }
+    const p = picks[0];
+    const reds = (p.red || []).slice().sort((a,b)=>a-b).map(pad2).join(' ');
+    const text = `${reds} + ${pad2(p.blue)}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      elPredictStatus.innerText = '已复制';
+      setTimeout(() => { elPredictStatus.innerText = ''; }, 1200);
+    } catch (e) {
+      elPredictStatus.innerText = text;
+    }
+  }
+
+  elSyncBtn.addEventListener('click', syncMissing);
+  elRefreshBtn.addEventListener('click', loadTrend);
+  elLatestN.addEventListener('change', loadTrend);
+  elPredictOpenBtn.addEventListener('click', () => {
+    openPredict();
+    if (!lastPredict || !(lastPredict.picks || []).length) {
+      predict();
+    }
+  });
+
+  elStatsOpenBtn.addEventListener('click', () => {
+    openStats();
+    renderStats();
+  });
+
+  elPredictBtn.addEventListener('click', predict);
+  elPredictCopyBtn.addEventListener('click', copyFirstPick);
+
+  elPredictClose.addEventListener('click', closePredict);
+  elPredictOk.addEventListener('click', closePredict);
+  elPredictAgain.addEventListener('click', () => {
+    elPickCount.value = '1';
+    predict();
+  });
+  elPredictMask.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'predictMask') closePredict();
+  });
+
+  elStatsClose.addEventListener('click', closeStats);
+  elStatsOk.addEventListener('click', closeStats);
+  elStatsMask.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'statsMask') closeStats();
+  });
+
+  window.addEventListener('resize', () => {
+    fitTrendTable();
+    syncTopScroller();
+  });
+
+  checkHealth();
+  loadTrend();
+</script>
+</body>
+</html>
