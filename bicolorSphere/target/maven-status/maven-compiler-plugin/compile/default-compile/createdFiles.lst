@@ -7,6 +7,7 @@ com\example\bicolorsphere\web\SsqController.class
 com\example\bicolorsphere\repo\SsqPredictionRepository$PredictionRow.class
 com\example\bicolorsphere\service\SsqCrawlerService.class
 com\example\bicolorsphere\service\SsqStatsService$Pick.class
+com\example\bicolorsphere\repo\SsqPredictionRepository$SearchResult.class
 com\example\bicolorsphere\repo\SsqPredictionRepository.class
 com\example\bicolorsphere\service\SsqPredictionService.class
 com\example\bicolorsphere\repo\SsqDrawRepository.class

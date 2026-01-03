@@ -132,6 +132,13 @@ public class SsqController {
         return predictionService.reconcileUnresolved(limit);
     }
 
+    @GetMapping("/predictions/search")
+    public Object searchPredictions(@RequestParam(required = false) String drawNo,
+                                    @RequestParam(defaultValue = "0") @Min(0) int page,
+                                    @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
+        return predictionService.search(drawNo, page, size);
+    }
+
     @GetMapping("/trend")
     public Object trend(@RequestParam(defaultValue = "100") @Min(10) @Max(5000) int latestN) {
         return statsService.trend(latestN);

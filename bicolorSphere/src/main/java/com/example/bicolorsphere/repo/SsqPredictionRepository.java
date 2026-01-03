@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.*;
 
 @Repository
@@ -97,6 +98,35 @@ public class SsqPredictionRepository {
         );
     }
 
+    public SearchResult search(String drawNo, int page, int size) {
+        int p = Math.max(0, page);
+        int s = Math.max(1, Math.min(200, size));
+        int offset = p * s;
+
+        String base = " FROM ssq_prediction_record WHERE 1=1";
+        List<Object> args = new ArrayList<Object>();
+        if (drawNo != null && !drawNo.trim().isEmpty()) {
+            base += " AND draw_no = ?";
+            args.add(drawNo.trim());
+        }
+
+        long total = 0;
+        Long tv = jdbcTemplate.queryForObject("SELECT COUNT(1)" + base, Long.class, args.toArray());
+        if (tv != null) total = tv;
+
+        List<Object> pageArgs = new ArrayList<Object>(args);
+        pageArgs.add(s);
+        pageArgs.add(offset);
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT id, draw_no, predict_reds, predict_blue, actual_reds, actual_blue, red_hit, blue_hit, hit_rate, error_rate, created_at, updated_at" +
+                        base + " ORDER BY draw_no DESC, id DESC LIMIT ? OFFSET ?",
+                pageArgs.toArray()
+        );
+
+        return new SearchResult(total, p, s, rows);
+    }
+
     public int updateResult(long id,
                             String actualReds,
                             int actualBlue,
@@ -156,6 +186,45 @@ public class SsqPredictionRepository {
 
     public static BigDecimal round6(double v) {
         return new BigDecimal(v).setScale(6, RoundingMode.HALF_UP);
+    }
+
+    public static class SearchResult {
+        private long total;
+        private int page;
+        private int size;
+        private List<Map<String, Object>> rows;
+
+        public SearchResult(long total, int page, int size, List<Map<String, Object>> rows) {
+            this.total = total;
+            this.page = page;
+            this.size = size;
+            this.rows = rows;
+        }
+
+        public long getTotal() {
+            return total;
+        }
+
+        public int getPage() {
+            return page;
+        }
+
+        public int getSize() {
+            return size;
+        }
+
+        public List<Map<String, Object>> getRows() {
+            return rows;
+        }
+
+        public Map<String, Object> asMap() {
+            Map<String, Object> m = new HashMap<String, Object>();
+            m.put("total", total);
+            m.put("page", page);
+            m.put("size", size);
+            m.put("rows", rows);
+            return m;
+        }
     }
 
     public static class PredictionRow {

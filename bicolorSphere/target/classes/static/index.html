@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>双色球 - 趋势与预测</title>
   <style>
-    :root{--bg:#0b1020;--card:rgba(255,255,255,.06);--bd:rgba(255,255,255,.10);--t:#e8ecff;--m:rgba(232,236,255,.70);--red:#ff4d4f;--blue:#3a7bff;--acc:#4f7cff}
+    :root{--bg:#141b33;--card:rgba(255,255,255,.10);--bd:rgba(255,255,255,.14);--t:#eef2ff;--m:rgba(238,242,255,.74);--red:#ff4d4f;--blue:#3a7bff;--acc:#4f7cff}
     html,body{height:100%;overflow-x:hidden}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--t)}
     .wrap{max-width:none;width:100%;margin:0 auto;padding:12px;box-sizing:border-box;min-height:100vh;display:flex;flex-direction:column}
@@ -29,13 +29,10 @@
     .pick{padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;background:rgba(255,255,255,.06);margin-bottom:10px}
 
     .trendCard{display:flex;flex-direction:column;min-height:0}
-    .tableHeadWrap{overflow:hidden;flex:0 0 auto;background:rgba(20,28,56,.95);border:1px solid rgba(255,255,255,.10);border-radius:12px 12px 0 0;min-height:44px}
-    .tableScrollTop{display:none}
+    .tableHeadWrap{overflow:hidden;flex:0 0 auto;background:rgba(20,28,56,.92);border:1px solid rgba(255,255,255,.10);border-radius:12px 12px 0 0;min-height:44px}
+    .tableScrollTop{display:block;overflow:auto;flex:0 0 auto;margin-bottom:6px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(0,0,0,.12)}
     .tableScrollTopInner{height:1px}
-    .tableBodyWrap{overflow:auto;background:rgba(0,0,0,.10);border:1px solid rgba(255,255,255,.10);border-top:0;border-radius:0 0 12px 12px;flex:1 1 auto;min-height:260px;scrollbar-gutter:stable both-edges;overflow-x:hidden}
-    /* hide horizontal scrollbar but keep horizontal scroll */
-    .tableBodyWrap::-webkit-scrollbar{height:0;width:8px}
-    .tableBodyWrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:8px}
+    .tableBodyWrap{overflow:auto;background:rgba(0,0,0,.10);border:1px solid rgba(255,255,255,.10);border-top:0;border-radius:0 0 12px 12px;flex:1 1 auto;min-height:260px;scrollbar-gutter:stable both-edges;overflow-x:auto}
     table{border-collapse:collapse;width:max-content;min-width:100%;transform-origin:left top}
     th,td{border:1px solid rgba(255,255,255,.10);text-align:center;font-size:11px;line-height:20px;height:20px;padding:0;white-space:nowrap}
     thead th{background:rgba(20,28,56,.95)}
@@ -119,6 +116,7 @@
         </select>
         <button class="btn secondary" id="refreshBtn">刷新</button>
         <button class="btn" id="predictOpenBtn">预测</button>
+        <button class="btn secondary" id="predLibOpenBtn">预测库</button>
       </div>
     </div>
 
@@ -245,6 +243,34 @@
         </div>
       </div>
     </div>
+
+    <div class="modalMask" id="predLibMask">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modalHd">
+          <div class="t">预测库</div>
+          <button class="btnGhost" id="predLibClose">关闭</button>
+        </div>
+        <div class="modalBd">
+          <div class="statsFilterForm">
+            <div class="lbl">期号</div>
+            <input id="predLibDrawNo" placeholder="可选，如 2026002" />
+            <div class="lbl">每页</div>
+            <input id="predLibSize" value="50" />
+          </div>
+          <div class="statsFilterActions">
+            <button class="btn" id="predLibQuery">查询</button>
+            <button class="btn secondary" id="predLibPrev">上一页</button>
+            <button class="btn secondary" id="predLibNext">下一页</button>
+            <span class="status" id="predLibMeta"></span>
+          </div>
+          <div class="divider" style="background:rgba(0,0,0,.08);"></div>
+          <div id="predLibResult"></div>
+        </div>
+        <div class="modalFt">
+          <button class="btn" id="predLibOk">确定</button>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -257,6 +283,7 @@
   const elHealth = document.getElementById('healthPill');
   const elPredictOpenBtn = document.getElementById('predictOpenBtn');
   const elStatsOpenBtn = document.getElementById('statsOpenBtn');
+  const elPredLibOpenBtn = document.getElementById('predLibOpenBtn');
 
   const elStrategy = document.getElementById('strategy');
   const elPickCount = document.getElementById('pickCount');
@@ -296,6 +323,17 @@
   const elStatsApply = document.getElementById('statsApply');
   const elStatsReset = document.getElementById('statsReset');
   const elStatsTip = document.getElementById('statsTip');
+
+  const elPredLibMask = document.getElementById('predLibMask');
+  const elPredLibClose = document.getElementById('predLibClose');
+  const elPredLibOk = document.getElementById('predLibOk');
+  const elPredLibDrawNo = document.getElementById('predLibDrawNo');
+  const elPredLibSize = document.getElementById('predLibSize');
+  const elPredLibQuery = document.getElementById('predLibQuery');
+  const elPredLibPrev = document.getElementById('predLibPrev');
+  const elPredLibNext = document.getElementById('predLibNext');
+  const elPredLibMeta = document.getElementById('predLibMeta');
+  const elPredLibResult = document.getElementById('predLibResult');
 
   const elTableHeadWrap = document.getElementById('tableHeadWrap');
   const elTableBodyWrap = document.getElementById('tableBodyWrap');
@@ -371,31 +409,13 @@
       const headTable = document.getElementById('trendHeadTable');
       const bodyTable = document.getElementById('trendBodyTable');
       if (!headTable || !bodyTable) return;
-      // Force header wrap width to match body visible width (exclude vertical scrollbar width)
-      if (elTableHeadWrap && elTableBodyWrap && elTableBodyWrap.clientWidth) {
-        elTableHeadWrap.style.width = elTableBodyWrap.clientWidth + 'px';
-        elTableHeadWrap.style.boxSizing = 'border-box';
-      }
+      headTable.style.transform = '';
+      bodyTable.style.transform = '';
+      headTable.style.width = '';
+      bodyTable.style.width = '';
+      bodyTable.style.marginBottom = '';
 
-      const containerW = elTableBodyWrap ? elTableBodyWrap.clientWidth : 0;
-      const contentW = bodyTable.scrollWidth || 0;
-      if (!containerW || !contentW) return;
-
-      // Make head/body compute from the same base width to avoid sub-pixel drift
-      headTable.style.width = contentW + 'px';
-      bodyTable.style.width = contentW + 'px';
-
-      const scale = Math.min(1, containerW / contentW);
-      headTable.style.transform = scale < 1 ? `scale(${scale})` : '';
-      bodyTable.style.transform = scale < 1 ? `scale(${scale})` : '';
-
-      // transform 会改变可视高度，但不改变布局高度；这里用缩放比反向补偿容器高度占用
-      if (scale < 1) {
-        const bodyH = bodyTable.offsetHeight;
-        if (bodyH) bodyTable.style.marginBottom = Math.max(0, Math.round(bodyH * (1 - scale))) + 'px';
-      } else {
-        bodyTable.style.marginBottom = '';
-      }
+      syncTopScroller();
     } catch (e) {
     }
   }
@@ -530,12 +550,30 @@
 
   function syncTopScroller() {
     try {
-      if (elTableScrollTop && getComputedStyle(elTableScrollTop).display === 'none') return;
+      const headTable = document.getElementById('trendHeadTable');
       const w = elTableBodyWrap && elTableBodyWrap.scrollWidth ? elTableBodyWrap.scrollWidth : 0;
       elTableScrollTopInner.style.width = w ? (w + 'px') : '0px';
       elTableScrollTop.scrollLeft = elTableBodyWrap.scrollLeft;
+      if (headTable && elTableBodyWrap) headTable.style.marginLeft = (-elTableBodyWrap.scrollLeft) + 'px';
     } catch (e) {
     }
+  }
+
+  if (elTableBodyWrap) {
+    elTableBodyWrap.addEventListener('scroll', () => {
+      syncTopScroller();
+    });
+  }
+  if (elTableScrollTop) {
+    elTableScrollTop.addEventListener('scroll', () => {
+      if (!elTableBodyWrap) return;
+      elTableBodyWrap.scrollLeft = elTableScrollTop.scrollLeft;
+      try {
+        const headTable = document.getElementById('trendHeadTable');
+        if (headTable) headTable.style.marginLeft = (-elTableScrollTop.scrollLeft) + 'px';
+      } catch (e) {
+      }
+    });
   }
 
   async function loadTrend() {
@@ -753,6 +791,59 @@
   }
   function closeStats() {
     elStatsMask.style.display = 'none';
+  }
+
+  function openPredLib() {
+    elPredLibMask.style.display = 'flex';
+  }
+  function closePredLib() {
+    elPredLibMask.style.display = 'none';
+  }
+
+  let predLibPage = 0;
+  async function loadPredLib(pageDelta) {
+    predLibPage = Math.max(0, predLibPage + (pageDelta || 0));
+    const drawNo = elPredLibDrawNo ? String(elPredLibDrawNo.value || '').trim() : '';
+    const size = Math.max(1, Math.min(200, parseInt(String(elPredLibSize.value || '50'), 10) || 50));
+    elPredLibSize.value = String(size);
+
+    elPredLibMeta.innerText = '加载中...';
+    const url = `/api/predictions/search?page=${encodeURIComponent(predLibPage)}&size=${encodeURIComponent(size)}` + (drawNo ? `&drawNo=${encodeURIComponent(drawNo)}` : '');
+    const res = await fetch(api(url));
+    const data = await res.json();
+
+    const total = data && data.total != null ? data.total : 0;
+    const p = data && data.page != null ? data.page : predLibPage;
+    const rows = data && data.rows ? data.rows : [];
+    elPredLibMeta.innerText = `共 ${total} 条，第 ${p + 1} 页`;
+
+    let html = '';
+    html += '<table class="statsTable">';
+    html += '<thead><tr>';
+    html += '<th>期号</th>';
+    html += '<th>预测红</th>';
+    html += '<th class="num">蓝</th>';
+    html += '<th>真实红</th>';
+    html += '<th class="num">蓝</th>';
+    html += '<th class="num">命中率</th>';
+    html += '<th class="num">误差率</th>';
+    html += '</tr></thead><tbody>';
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i] || {};
+      const hr = r.hit_rate == null ? '' : String(r.hit_rate);
+      const er = r.error_rate == null ? '' : String(r.error_rate);
+      html += '<tr>';
+      html += `<td>${r.draw_no || ''}</td>`;
+      html += `<td>${r.predict_reds || ''}</td>`;
+      html += `<td class="num">${r.predict_blue == null ? '' : r.predict_blue}</td>`;
+      html += `<td>${r.actual_reds || ''}</td>`;
+      html += `<td class="num">${r.actual_blue == null ? '' : r.actual_blue}</td>`;
+      html += `<td class="num">${hr}</td>`;
+      html += `<td class="num">${er}</td>`;
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    elPredLibResult.innerHTML = html;
   }
 
   function sortEntriesDesc(obj) {
@@ -980,6 +1071,12 @@
     openPredict();
   });
 
+  elPredLibOpenBtn.addEventListener('click', async () => {
+    openPredLib();
+    predLibPage = 0;
+    await loadPredLib(0);
+  });
+
   elStatsOpenBtn.addEventListener('click', () => {
     openStats();
     renderStats();
@@ -1007,6 +1104,20 @@
     elStatsOE.value = '';
     elStatsTip.innerText = '';
     renderStats({ minSum:null, maxSum:null, minSpan:null, maxSpan:null, zone:null, oe:null });
+  });
+
+  elPredLibClose.addEventListener('click', closePredLib);
+  elPredLibOk.addEventListener('click', closePredLib);
+  elPredLibQuery.addEventListener('click', async () => {
+    predLibPage = 0;
+    await loadPredLib(0);
+  });
+  elPredLibPrev.addEventListener('click', async () => {
+    if (predLibPage <= 0) return;
+    await loadPredLib(-1);
+  });
+  elPredLibNext.addEventListener('click', async () => {
+    await loadPredLib(1);
   });
 
   elPredictBtn.addEventListener('click', predict);

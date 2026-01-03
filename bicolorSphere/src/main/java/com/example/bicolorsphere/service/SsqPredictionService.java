@@ -83,6 +83,10 @@ public class SsqPredictionService {
         return m;
     }
 
+    public Map<String, Object> search(String drawNo, int page, int size) {
+        return predictionRepository.search(drawNo, page, size).asMap();
+    }
+
     private static String joinReds(SsqDraw d) {
         if (d == null || d.getReds() == null || d.getReds().size() != 6) return "";
         StringBuilder sb = new StringBuilder();
