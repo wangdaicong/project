@@ -67,10 +67,12 @@
     .modalActions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
     .modalActions .status{color:rgba(0,0,0,.60)}
     .statsTable{width:100%;border-collapse:collapse;font-size:12px;color:#111}
-    .statsTable th{background:#f4f6fb;color:#111;border-bottom:1px solid rgba(0,0,0,.10);padding:8px;text-align:left}
-    .statsTable td{padding:8px;border-bottom:1px solid rgba(0,0,0,.06);background:#fff}
+    .statsTable th{background:#f4f6fb;color:#111;border-bottom:1px solid rgba(0,0,0,.10);padding:8px;text-align:center}
+    .statsTable td{padding:8px;border-bottom:1px solid rgba(0,0,0,.06);background:#fff;text-align:center}
     .statsTable tr:nth-child(even) td{background:#fafbff}
-    .statsTable .num{text-align:right}
+    .statsTable .num{text-align:center}
+    .predLibTable th,.predLibTable td{text-align:center}
+    .predLibTable .num{text-align:center}
     .statsSectionTitle{font-weight:700;margin:10px 0 6px 0;color:#111}
     .statsFilterForm{display:grid;grid-template-columns:84px 1fr 84px 1fr;gap:8px 12px;align-items:center}
     .statsFilterForm .lbl{color:rgba(0,0,0,.65);font-size:12px;white-space:nowrap;justify-self:end}
@@ -808,7 +810,7 @@
     elPredLibMeta.innerText = `共 ${total} 条，第 ${p + 1} 页`;
 
     let html = '';
-    html += '<table class="statsTable">';
+    html += '<table class="statsTable predLibTable">';
     html += '<thead><tr>';
     html += '<th>期号</th>';
     html += '<th>预测红</th>';
