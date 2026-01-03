@@ -106,7 +106,36 @@ mvn -s .\mvn-settings.xml spring-boot:run
 - `danBlues` / `killBlues`：蓝胆/蓝杀（空格或逗号分隔）
 - `maxTry`：不满足约束时的最大重试次数
 
-### 5.4 回测与策略推荐
+### 5.4 预测入库与开奖后回填
+
+前端在“预测”弹窗中，可对每一注点击“加入预测库”，系统会自动以“当前趋势最新期号 + 1”作为目标期号入库。
+
+当开奖后，点击首页“同步数据/补齐缺失数据”接口会在返回中自动携带一次回填结果：
+
+- 若预测表中存在对应期号的记录，且 `ssq_draw` 已有该期真实开奖号码，则自动写入真实号码并计算命中率/误差率。
+
+接口：
+
+- `POST /api/predictions?drawNo=2026002&reds=01%2002%2003%2004%2005%2006&blue=16`
+  - 保存一注预测到数据库（同一期号+同一注号码重复提交会去重）
+- `POST /api/predictions/reconcile?limit=5000`
+  - 手动触发回填（通常不需要，`/api/sync` 与 `/api/sync/missing` 会自动触发）
+
+命中率/误差率口径：
+
+- `red_hit`：红球命中个数（0~6）
+- `blue_hit`：蓝球是否命中（0/1）
+- `hit_rate = (red_hit + blue_hit) / 7`
+- `error_rate = 1 - hit_rate`
+
+表：`ssq_prediction_record`（项目启动时自动建表并补齐表/字段注释）
+
+- 期号：`draw_no`
+- 预测号码：`predict_reds`、`predict_blue`
+- 真实开奖号码：`actual_reds`、`actual_blue`
+- 命中率/误差率：`hit_rate`、`error_rate`
+
+### 5.5 回测与策略推荐
 
 - `GET /api/backtest?strategy=hybrid&trainWindow=200&testCount=50`
 - `GET /api/recommend?trainWindow=200&testCount=80`

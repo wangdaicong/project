@@ -19,6 +19,23 @@ public class SsqDrawRepository {
 
     public SsqDrawRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        ensureComments();
+    }
+
+    private void ensureComments() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE ssq_draw COMMENT='双色球开奖记录表'");
+            jdbcTemplate.execute("ALTER TABLE ssq_draw MODIFY COLUMN draw_no VARCHAR(20) NOT NULL COMMENT '期号'");
+            jdbcTemplate.execute("ALTER TABLE ssq_draw MODIFY COLUMN draw_date DATE NULL COMMENT '开奖日期'");
+            jdbcTemplate.execute("ALTER TABLE ssq_draw MODIFY COLUMN red1 INT NOT NULL COMMENT '红球1'");
+            jdbcTemplate.execute("ALTER TABLE ssq_draw MODIFY COLUMN red2 INT NOT NULL COMMENT '红球2'");
+            jdbcTemplate.execute("ALTER TABLE ssq_draw MODIFY COLUMN red3 INT NOT NULL COMMENT '红球3'");
+            jdbcTemplate.execute("ALTER TABLE ssq_draw MODIFY COLUMN red4 INT NOT NULL COMMENT '红球4'");
+            jdbcTemplate.execute("ALTER TABLE ssq_draw MODIFY COLUMN red5 INT NOT NULL COMMENT '红球5'");
+            jdbcTemplate.execute("ALTER TABLE ssq_draw MODIFY COLUMN red6 INT NOT NULL COMMENT '红球6'");
+            jdbcTemplate.execute("ALTER TABLE ssq_draw MODIFY COLUMN blue INT NOT NULL COMMENT '蓝球'");
+        } catch (Exception ignore) {
+        }
     }
 
     private static final RowMapper<SsqDraw> MAPPER = (rs, rowNum) -> {

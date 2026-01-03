@@ -4,8 +4,11 @@ com\example\bicolorsphere\service\SsqExcelExportService.class
 com\example\bicolorsphere\service\SsqStatsService.class
 com\example\bicolorsphere\service\SsqSyncService$SyncResult.class
 com\example\bicolorsphere\web\SsqController.class
+com\example\bicolorsphere\repo\SsqPredictionRepository$PredictionRow.class
 com\example\bicolorsphere\service\SsqCrawlerService.class
 com\example\bicolorsphere\service\SsqStatsService$Pick.class
+com\example\bicolorsphere\repo\SsqPredictionRepository.class
+com\example\bicolorsphere\service\SsqPredictionService.class
 com\example\bicolorsphere\repo\SsqDrawRepository.class
 com\example\bicolorsphere\service\SsqSyncService.class
 com\example\bicolorsphere\service\SsqAutoSyncJob.class

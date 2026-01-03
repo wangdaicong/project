@@ -75,6 +75,14 @@
     .statsTable tr:nth-child(even) td{background:#fafbff}
     .statsTable .num{text-align:right}
     .statsSectionTitle{font-weight:700;margin:10px 0 6px 0;color:#111}
+    .statsFilterForm{display:grid;grid-template-columns:84px 1fr 84px 1fr;gap:8px 12px;align-items:center}
+    .statsFilterForm .lbl{color:rgba(0,0,0,.65);font-size:12px;white-space:nowrap;justify-self:end}
+    .statsFilterForm input{width:100%;box-sizing:border-box}
+    .statsFilterActions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+    @media(max-width:760px){
+      .statsFilterForm{grid-template-columns:84px 1fr;}
+      .statsFilterForm .lbl{justify-self:start}
+    }
     @media(max-width:760px){
       .modalForm{grid-template-columns:84px 1fr;}
       .modalForm .span2{grid-column:2 / 3}
@@ -105,6 +113,9 @@
           <option value="200">200</option>
           <option value="300" selected>300</option>
           <option value="500">500</option>
+          <option value="1000">1000</option>
+          <option value="2000">2000</option>
+          <option value="5000">5000</option>
         </select>
         <button class="btn secondary" id="refreshBtn">刷新</button>
         <button class="btn" id="predictOpenBtn">预测</button>
@@ -137,7 +148,7 @@
         <div class="modalBd">
           <div class="modalForm">
             <div class="lbl">策略</div>
-            <select id="strategy" class="span2">
+            <select id="strategy" class="span2" title="预测策略：不同算法生成候选号码，可配合下方约束条件过滤">
               <option value="frequency_top">热号优先</option>
               <option value="omission_top">遗漏优先</option>
               <option value="hybrid" selected>综合（热度+遗漏）</option>
@@ -149,37 +160,35 @@
             </select>
 
             <div class="lbl">注数</div>
-            <input id="pickCount" value="5" />
+            <input id="pickCount" value="5" title="生成的注数（1~20）" />
             <div class="lbl">重试</div>
-            <input id="maxTry" placeholder="默认120" />
+            <input id="maxTry" placeholder="默认120" title="不满足约束时的最大重试次数（留空默认120）" />
 
             <div class="lbl">和值</div>
-            <input id="minSum" placeholder="最小" />
+            <input id="minSum" placeholder="最小" title="和值下限（6个红球相加）" />
             <div class="lbl">和值</div>
-            <input id="maxSum" placeholder="最大" />
+            <input id="maxSum" placeholder="最大" title="和值上限（6个红球相加）" />
 
             <div class="lbl">跨度</div>
-            <input id="minSpan" placeholder="最小" />
+            <input id="minSpan" placeholder="最小" title="跨度下限（最大红球-最小红球）" />
             <div class="lbl">跨度</div>
-            <input id="maxSpan" placeholder="最大" />
+            <input id="maxSpan" placeholder="最大" title="跨度上限（最大红球-最小红球）" />
 
-            <div class="lbl">奇数个数</div>
-            <input id="minOdd" placeholder="最小" />
-            <div class="lbl">奇数个数</div>
-            <input id="maxOdd" placeholder="最大" />
+            <div class="lbl">奇偶比</div>
+            <input id="oddEvenRatio" placeholder="如 3:3" title="奇偶比（奇:偶），如 3:3、4:2（两数之和必须为6）" />
 
             <div class="lbl">区间比</div>
-            <input id="zoneRatio" placeholder="如 2:2:2" />
+            <input id="zoneRatio" placeholder="如 2:2:2" title="区间比（1-11 / 12-22 / 23-33），如 2:2:2（三数之和必须为6）" />
             <div class="lbl">红胆</div>
-            <input id="danReds" placeholder="如 1 8" />
+            <input id="danReds" placeholder="如 1 8" title="红胆：必须包含的红球（空格或逗号分隔），如 1 8" />
 
             <div class="lbl">红杀</div>
-            <input id="killReds" placeholder="如 3 16" />
+            <input id="killReds" placeholder="如 3 16" title="红杀：必须排除的红球（空格或逗号分隔），如 3 16" />
             <div class="lbl">蓝胆</div>
-            <input id="danBlues" placeholder="如 6 12" />
+            <input id="danBlues" placeholder="如 6 12" title="蓝胆：必须包含的蓝球（空格或逗号分隔），如 6 12" />
 
             <div class="lbl">蓝杀</div>
-            <input id="killBlues" placeholder="如 1 16" />
+            <input id="killBlues" placeholder="如 1 16" title="蓝杀：必须排除的蓝球（空格或逗号分隔），如 1 16" />
           </div>
 
           <div class="modalActions">
@@ -205,6 +214,29 @@
         </div>
         <div class="modalBd">
           <div class="status" id="statsMeta"></div>
+          <div style="margin-top:10px">
+            <div class="statsFilterForm">
+              <div class="lbl">和值</div>
+              <input id="statsMinSum" placeholder="最小(可选)" />
+              <div class="lbl">和值</div>
+              <input id="statsMaxSum" placeholder="最大(可选)" />
+
+              <div class="lbl">跨度</div>
+              <input id="statsMinSpan" placeholder="最小(可选)" />
+              <div class="lbl">跨度</div>
+              <input id="statsMaxSpan" placeholder="最大(可选)" />
+
+              <div class="lbl">区间比</div>
+              <input id="statsZone" placeholder="如 2:2:2" />
+              <div class="lbl">奇偶比</div>
+              <input id="statsOE" placeholder="如 3:3" />
+            </div>
+            <div class="statsFilterActions">
+              <button class="btn" id="statsApply">应用筛选</button>
+              <button class="btn secondary" id="statsReset">重置</button>
+              <span class="status" id="statsTip"></span>
+            </div>
+          </div>
           <div class="divider" style="background:rgba(0,0,0,.08);"></div>
           <div id="statsResult"></div>
         </div>
@@ -237,8 +269,7 @@
   const elMaxSum = document.getElementById('maxSum');
   const elMinSpan = document.getElementById('minSpan');
   const elMaxSpan = document.getElementById('maxSpan');
-  const elMinOdd = document.getElementById('minOdd');
-  const elMaxOdd = document.getElementById('maxOdd');
+  const elOddEvenRatio = document.getElementById('oddEvenRatio');
   const elZoneRatio = document.getElementById('zoneRatio');
   const elDanReds = document.getElementById('danReds');
   const elKillReds = document.getElementById('killReds');
@@ -256,6 +287,15 @@
   const elStatsOk = document.getElementById('statsOk');
   const elStatsMeta = document.getElementById('statsMeta');
   const elStatsResult = document.getElementById('statsResult');
+  const elStatsMinSum = document.getElementById('statsMinSum');
+  const elStatsMaxSum = document.getElementById('statsMaxSum');
+  const elStatsMinSpan = document.getElementById('statsMinSpan');
+  const elStatsMaxSpan = document.getElementById('statsMaxSpan');
+  const elStatsZone = document.getElementById('statsZone');
+  const elStatsOE = document.getElementById('statsOE');
+  const elStatsApply = document.getElementById('statsApply');
+  const elStatsReset = document.getElementById('statsReset');
+  const elStatsTip = document.getElementById('statsTip');
 
   const elTableHeadWrap = document.getElementById('tableHeadWrap');
   const elTableBodyWrap = document.getElementById('tableBodyWrap');
@@ -331,9 +371,19 @@
       const headTable = document.getElementById('trendHeadTable');
       const bodyTable = document.getElementById('trendBodyTable');
       if (!headTable || !bodyTable) return;
+      // Force header wrap width to match body visible width (exclude vertical scrollbar width)
+      if (elTableHeadWrap && elTableBodyWrap && elTableBodyWrap.clientWidth) {
+        elTableHeadWrap.style.width = elTableBodyWrap.clientWidth + 'px';
+        elTableHeadWrap.style.boxSizing = 'border-box';
+      }
+
       const containerW = elTableBodyWrap ? elTableBodyWrap.clientWidth : 0;
       const contentW = bodyTable.scrollWidth || 0;
       if (!containerW || !contentW) return;
+
+      // Make head/body compute from the same base width to avoid sub-pixel drift
+      headTable.style.width = contentW + 'px';
+      bodyTable.style.width = contentW + 'px';
 
       const scale = Math.min(1, containerW / contentW);
       headTable.style.transform = scale < 1 ? `scale(${scale})` : '';
@@ -509,13 +559,123 @@
       const reds = (p.red || []).slice().sort((a,b)=>a-b);
       html += '<div class="pick">';
       html += `<div class="status">第 ${i+1} 注</div>`;
-      html += '<div class="balls" style="margin-top:8px;">';
+      html += '<div style="display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;margin-top:8px;">';
+      html += '<div class="balls" style="margin:0;">';
       for (let j = 0; j < reds.length; j++) html += `<span class="ball red">${pad2(reds[j])}</span>`;
       html += `<span class="ball blue">${pad2(p.blue)}</span>`;
-      html += '</div></div>';
+      html += '</div>';
+      html += '<div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;flex:0 0 auto;">';
+      html += `<button class="btn secondary" data-act="analyze" data-idx="${i}">分析</button>`;
+      html += `<button class="btn" data-act="save" data-idx="${i}">加入预测库</button>`;
+      html += '</div>';
+      html += '</div>';
+      html += '<div class="status" data-pick-status="' + i + '" style="margin-top:6px"></div>';
+      html += '</div>';
     }
     elPredictResult.innerHTML = html;
   }
+
+  function nextDrawNo(drawNo) {
+    const t = drawNo == null ? '' : String(drawNo).trim();
+    if (!t) return '';
+    if (!/^\d{5,}$/.test(t)) return '';
+    const year = t.substring(0, 4);
+    const seqStr = t.substring(4);
+    const seq = parseInt(seqStr, 10);
+    if (isNaN(seq)) return '';
+    const seqLen = seqStr.length;
+    let ny = parseInt(year, 10);
+    let ns = seq + 1;
+    if (!isNaN(ny) && ns >= Math.pow(10, seqLen)) {
+      ny += 1;
+      ns = 1;
+    }
+    const nsStr = String(ns).padStart(seqLen, '0');
+    return (isNaN(ny) ? year : String(ny)) + nsStr;
+  }
+
+  function latestDrawNoFromTrend() {
+    const arr = lastTrend && lastTrend.drawNos ? lastTrend.drawNos : [];
+    if (!arr || !arr.length) return '';
+    // backend may return asc; front table sorts independently, so pick max draw_no safely
+    let best = '';
+    let bestN = -1;
+    for (let i = 0; i < arr.length; i++) {
+      const s = String(arr[i] || '').trim();
+      const n = parseInt(s, 10);
+      if (!isNaN(n) && n > bestN) {
+        bestN = n;
+        best = s;
+      }
+    }
+    return best || String(arr[arr.length - 1] || '').trim();
+  }
+
+  function pickRedsText(p) {
+    const reds = (p && p.red) ? p.red.slice().sort((a,b)=>a-b) : [];
+    return reds.map(pad2).join(' ');
+  }
+
+  async function savePickToDb(p) {
+    const latest = latestDrawNoFromTrend();
+    const drawNo = nextDrawNo(latest);
+    if (!drawNo) {
+      elPredictStatus.innerText = '请先加载趋势数据，才能自动计算下一期号';
+      return;
+    }
+    const redsText = pickRedsText(p);
+    const blue = p && p.blue != null ? parseInt(String(p.blue), 10) : NaN;
+    if (!redsText || isNaN(blue)) {
+      elPredictStatus.innerText = '预测号码异常，无法入库';
+      return;
+    }
+    const body = `drawNo=${encodeURIComponent(drawNo)}&reds=${encodeURIComponent(redsText)}&blue=${encodeURIComponent(blue)}`;
+    const res = await fetch(api('/api/predictions'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    return await res.json();
+  }
+
+  function findPickStatusEl(i) {
+    return elPredictResult ? elPredictResult.querySelector(`[data-pick-status="${i}"]`) : null;
+  }
+
+  elPredictResult.addEventListener('click', async (e) => {
+    const btn = e && e.target ? e.target.closest('button') : null;
+    if (!btn) return;
+    const act = btn.getAttribute('data-act');
+    const idxStr = btn.getAttribute('data-idx');
+    const idx = idxStr == null ? -1 : parseInt(idxStr, 10);
+    const picks = (lastPredict && lastPredict.picks) ? lastPredict.picks : [];
+    if (!act || isNaN(idx) || idx < 0 || idx >= picks.length) return;
+
+    const p = picks[idx];
+    const stEl = findPickStatusEl(idx);
+
+    if (act === 'analyze') {
+      const reds = (p.red || []).slice().sort((a,b)=>a-b);
+      const st = statsForRow(reds);
+      const text = `和值=${st.sum}  跨度=${st.span}  区间比=${st.zone}  奇偶比=${st.oe}`;
+      if (stEl) stEl.innerText = text;
+      return;
+    }
+
+    if (act === 'save') {
+      if (stEl) stEl.innerText = '入库中...';
+      btn.disabled = true;
+      try {
+        const data = await savePickToDb(p);
+        const inserted = data && data.inserted != null ? data.inserted : 0;
+        if (stEl) stEl.innerText = inserted ? '已加入预测库（新增）' : '已加入预测库（已存在）';
+      } catch (err) {
+        if (stEl) stEl.innerText = '入库失败，请稍后重试';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  });
 
   async function predict() {
     const n = parseInt(elLatestN.value, 10) || 300;
@@ -543,8 +703,20 @@
     addInt('maxSum', elMaxSum);
     addInt('minSpan', elMinSpan);
     addInt('maxSpan', elMaxSpan);
-    addInt('minOdd', elMinOdd);
-    addInt('maxOdd', elMaxOdd);
+
+    const oe = parseRatio2(elOddEvenRatio && elOddEvenRatio.value != null ? String(elOddEvenRatio.value) : '');
+    if (elOddEvenRatio && String(elOddEvenRatio.value || '').trim() && oe == null) {
+      elPredictStatus.innerText = '奇偶比格式应为 a:b 且和为6，例如 3:3';
+      return;
+    }
+    if (oe != null) {
+      const oddCnt = parseInt(oe.split(':')[0], 10);
+      if (!isNaN(oddCnt)) {
+        q.push(`minOdd=${encodeURIComponent(oddCnt)}`);
+        q.push(`maxOdd=${encodeURIComponent(oddCnt)}`);
+      }
+    }
+
     addStr('zoneRatio', elZoneRatio);
     addStr('danReds', elDanReds);
     addStr('killReds', elKillReds);
@@ -567,6 +739,10 @@
 
   function openPredict() {
     elPredictMask.style.display = 'flex';
+    // Do not show picks until user clicks "生成预测"
+    lastPredict = null;
+    elPredictStatus.innerText = '';
+    elPredictResult.innerHTML = '<div class="status">点击“生成预测”后显示结果</div>';
   }
   function closePredict() {
     elPredictMask.style.display = 'none';
@@ -585,7 +761,39 @@
     return entries;
   }
 
-  function renderFreqTable(title, entries, topN) {
+  function parseIntOrNull(s) {
+    const t = s == null ? '' : String(s).trim();
+    if (!t) return null;
+    const v = parseInt(t, 10);
+    return isNaN(v) ? null : v;
+  }
+
+  function parseRatio3(s) {
+    const t = s == null ? '' : String(s).trim();
+    if (!t) return null;
+    const parts = t.split(/[:：]/).map(x => x.trim()).filter(Boolean);
+    if (parts.length !== 3) return null;
+    const a = parseInt(parts[0], 10);
+    const b = parseInt(parts[1], 10);
+    const c = parseInt(parts[2], 10);
+    if ([a,b,c].some(x => isNaN(x))) return null;
+    if (a + b + c !== 6) return null;
+    return `${a}:${b}:${c}`;
+  }
+
+  function parseRatio2(s) {
+    const t = s == null ? '' : String(s).trim();
+    if (!t) return null;
+    const parts = t.split(/[:：]/).map(x => x.trim()).filter(Boolean);
+    if (parts.length !== 2) return null;
+    const a = parseInt(parts[0], 10);
+    const b = parseInt(parts[1], 10);
+    if ([a,b].some(x => isNaN(x))) return null;
+    if (a + b !== 6) return null;
+    return `${a}:${b}`;
+  }
+
+  function renderFreqTable(title, entries, topN, filterType) {
     const list = (entries || []).slice(0, topN);
     if (!list.length) return '';
     let html = '';
@@ -600,7 +808,7 @@
     for (let i = 0; i < list.length; i++) {
       const it = list[i];
       const pct = ((it.count || 0) * 100 / total).toFixed(1) + '%';
-      html += '<tr>';
+      html += filterType ? `<tr data-ft="${filterType}" data-fv="${String(it.key)}">` : '<tr>';
       html += `<td>${it.key}</td>`;
       html += `<td class="num">${it.count}</td>`;
       html += `<td class="num">${pct}</td>`;
@@ -610,7 +818,24 @@
     return html;
   }
 
-  function computeStatsFromTrend(trend) {
+  function applyStatsQuickFilter(ft, fv) {
+    if (!ft) return;
+    const v = fv == null ? '' : String(fv);
+    if (ft === 'sum') {
+      elStatsMinSum.value = v;
+      elStatsMaxSum.value = v;
+    } else if (ft === 'span') {
+      elStatsMinSpan.value = v;
+      elStatsMaxSpan.value = v;
+    } else if (ft === 'zone') {
+      elStatsZone.value = v;
+    } else if (ft === 'oe') {
+      elStatsOE.value = v;
+    }
+    renderStats();
+  }
+
+  function computeStatsFromTrend(trend, filter) {
     const drawNos = (trend && trend.drawNos) ? trend.drawNos : [];
     const redsArr = (trend && trend.reds) ? trend.reds : [];
 
@@ -619,10 +844,26 @@
     const zoneFreq = {};
     const oeFreq = {};
 
+    let hit = 0;
     for (let i = 0; i < redsArr.length; i++) {
       const reds = (redsArr[i] || []).slice().sort((a,b)=>a-b);
       if (reds.length !== 6) continue;
       const st = statsForRow(reds);
+
+      let ok = true;
+      if (filter) {
+        const sumV = st.sum ? parseInt(st.sum, 10) : null;
+        const spanV = st.span ? parseInt(st.span, 10) : null;
+        if (filter.minSum != null && sumV != null && sumV < filter.minSum) ok = false;
+        if (filter.maxSum != null && sumV != null && sumV > filter.maxSum) ok = false;
+        if (filter.minSpan != null && spanV != null && spanV < filter.minSpan) ok = false;
+        if (filter.maxSpan != null && spanV != null && spanV > filter.maxSpan) ok = false;
+        if (filter.zone != null && st.zone !== filter.zone) ok = false;
+        if (filter.oe != null && st.oe !== filter.oe) ok = false;
+      }
+      if (!ok) continue;
+      hit += 1;
+
       if (st.sum) sumFreq[st.sum] = (sumFreq[st.sum] || 0) + 1;
       if (st.span) spanFreq[st.span] = (spanFreq[st.span] || 0) + 1;
       if (st.zone) zoneFreq[st.zone] = (zoneFreq[st.zone] || 0) + 1;
@@ -634,9 +875,25 @@
     const zoneEntries = sortEntriesDesc(zoneFreq);
     const oeEntries = sortEntriesDesc(oeFreq);
 
+    let drawNoLatest = '';
+    if (drawNos && drawNos.length) {
+      let best = '';
+      let bestN = -1;
+      for (let i = 0; i < drawNos.length; i++) {
+        const s = String(drawNos[i] || '').trim();
+        const n = parseInt(s, 10);
+        if (!isNaN(n) && n > bestN) {
+          bestN = n;
+          best = s;
+        }
+      }
+      drawNoLatest = best || String(drawNos[drawNos.length - 1] || '').trim();
+    }
+
     return {
       n: redsArr.length,
-      drawNoLatest: drawNos && drawNos.length ? drawNos[0] : '',
+      hit,
+      drawNoLatest,
       sumEntries,
       spanEntries,
       zoneEntries,
@@ -644,20 +901,44 @@
     };
   }
 
-  function renderStats() {
+  function readStatsFilter() {
+    const minSum = parseIntOrNull(elStatsMinSum.value);
+    const maxSum = parseIntOrNull(elStatsMaxSum.value);
+    const minSpan = parseIntOrNull(elStatsMinSpan.value);
+    const maxSpan = parseIntOrNull(elStatsMaxSpan.value);
+    const zone = parseRatio3(elStatsZone.value);
+    const oe = parseRatio2(elStatsOE.value);
+
+    let tip = '';
+    if (elStatsZone.value && zone == null) tip = '区间比格式应为 a:b:c 且和为6';
+    if (!tip && elStatsOE.value && oe == null) tip = '奇偶比格式应为 a:b 且和为6';
+    elStatsTip.innerText = tip;
+
+    return {
+      minSum,
+      maxSum,
+      minSpan,
+      maxSpan,
+      zone,
+      oe
+    };
+  }
+
+  function renderStats(filter) {
     if (!lastTrend) {
       elStatsMeta.innerText = '请先加载趋势数据';
       elStatsResult.innerHTML = '<div class="status">暂无数据</div>';
       return;
     }
-    const s = computeStatsFromTrend(lastTrend);
-    elStatsMeta.innerText = `统计范围：最近 ${lastTrend.latestN || s.n} 期`;
+    const f = filter || readStatsFilter();
+    const s = computeStatsFromTrend(lastTrend, f);
+    elStatsMeta.innerText = `统计范围：最近 ${lastTrend.latestN || s.n} 期（命中 ${s.hit}/${s.n}）`;
 
     let html = '';
-    html += renderFreqTable('和值（Top 15）', s.sumEntries, 15);
-    html += renderFreqTable('跨度（Top 15）', s.spanEntries, 15);
-    html += renderFreqTable('区间比（Top 15）', s.zoneEntries, 15);
-    html += renderFreqTable('奇偶比（Top 15）', s.oeEntries, 15);
+    html += renderFreqTable('和值（Top 15）', s.sumEntries, 15, 'sum');
+    html += renderFreqTable('跨度（Top 15）', s.spanEntries, 15, 'span');
+    html += renderFreqTable('区间比（Top 15）', s.zoneEntries, 15, 'zone');
+    html += renderFreqTable('奇偶比（Top 15）', s.oeEntries, 15, 'oe');
     elStatsResult.innerHTML = html || '<div class="status">暂无数据</div>';
   }
 
@@ -697,14 +978,35 @@
   elLatestN.addEventListener('change', loadTrend);
   elPredictOpenBtn.addEventListener('click', () => {
     openPredict();
-    if (!lastPredict || !(lastPredict.picks || []).length) {
-      predict();
-    }
   });
 
   elStatsOpenBtn.addEventListener('click', () => {
     openStats();
     renderStats();
+  });
+
+  elStatsApply.addEventListener('click', () => {
+    renderStats();
+  });
+
+  elStatsResult.addEventListener('click', (e) => {
+    const tr = e && e.target ? e.target.closest('tr') : null;
+    if (!tr) return;
+    const ft = tr.getAttribute('data-ft');
+    const fv = tr.getAttribute('data-fv');
+    if (!ft) return;
+    applyStatsQuickFilter(ft, fv);
+  });
+
+  elStatsReset.addEventListener('click', () => {
+    elStatsMinSum.value = '';
+    elStatsMaxSum.value = '';
+    elStatsMinSpan.value = '';
+    elStatsMaxSpan.value = '';
+    elStatsZone.value = '';
+    elStatsOE.value = '';
+    elStatsTip.innerText = '';
+    renderStats({ minSum:null, maxSum:null, minSpan:null, maxSpan:null, zone:null, oe:null });
   });
 
   elPredictBtn.addEventListener('click', predict);

@@ -4,6 +4,7 @@ import com.example.bicolorsphere.repo.SsqDrawRepository;
 import com.example.bicolorsphere.service.SsqStatsService;
 import com.example.bicolorsphere.service.SsqSyncService;
 import com.example.bicolorsphere.service.SsqExcelExportService;
+import com.example.bicolorsphere.service.SsqPredictionService;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -26,15 +27,18 @@ public class SsqController {
     private final SsqSyncService syncService;
     private final SsqStatsService statsService;
     private final SsqExcelExportService excelExportService;
+    private final SsqPredictionService predictionService;
 
     public SsqController(SsqDrawRepository repository,
                          SsqSyncService syncService,
                          SsqStatsService statsService,
-                         SsqExcelExportService excelExportService) {
+                         SsqExcelExportService excelExportService,
+                         SsqPredictionService predictionService) {
         this.repository = repository;
         this.syncService = syncService;
         this.statsService = statsService;
         this.excelExportService = excelExportService;
+        this.predictionService = predictionService;
     }
 
     @GetMapping("/health")
@@ -91,17 +95,45 @@ public class SsqController {
     @PostMapping("/sync")
     public Object sync(@RequestParam(defaultValue = "1") @Min(1) int fromPage,
                        @RequestParam(defaultValue = "5") @Min(1) int toPage) throws IOException {
-        return syncService.syncPages(fromPage, toPage);
+        SsqSyncService.SyncResult r = syncService.syncPages(fromPage, toPage);
+        Map<String, Object> m = new HashMap<String, Object>();
+        m.put("fromPage", r.getFromPage());
+        m.put("toPage", r.getToPage());
+        m.put("fetched", r.getFetched());
+        m.put("inserted", r.getInserted());
+        m.put("errors", r.getErrors());
+        m.put("reconcile", predictionService.reconcileUnresolved(5000));
+        return m;
     }
 
     @PostMapping("/sync/missing")
     public Object syncMissing(@RequestParam(defaultValue = "80") @Min(1) @Max(200) int maxPages,
                               @RequestParam(defaultValue = "3") @Min(1) @Max(20) int stopAfterNoInsertPages) {
-        return syncService.syncMissing(maxPages, stopAfterNoInsertPages);
+        SsqSyncService.SyncMissingResult r = syncService.syncMissing(maxPages, stopAfterNoInsertPages);
+        Map<String, Object> m = new HashMap<String, Object>();
+        m.put("scannedPages", r.getScannedPages());
+        m.put("fetched", r.getFetched());
+        m.put("inserted", r.getInserted());
+        m.put("stopAfterNoInsertPages", r.getStopAfterNoInsertPages());
+        m.put("errors", r.getErrors());
+        m.put("reconcile", predictionService.reconcileUnresolved(5000));
+        return m;
+    }
+
+    @PostMapping("/predictions")
+    public Object savePrediction(@RequestParam String drawNo,
+                                 @RequestParam String reds,
+                                 @RequestParam @Min(1) @Max(16) int blue) {
+        return predictionService.savePrediction(drawNo, reds, blue);
+    }
+
+    @PostMapping("/predictions/reconcile")
+    public Object reconcile(@RequestParam(defaultValue = "5000") @Min(1) @Max(5000) int limit) {
+        return predictionService.reconcileUnresolved(limit);
     }
 
     @GetMapping("/trend")
-    public Object trend(@RequestParam(defaultValue = "100") @Min(10) @Max(500) int latestN) {
+    public Object trend(@RequestParam(defaultValue = "100") @Min(10) @Max(5000) int latestN) {
         return statsService.trend(latestN);
     }
 
