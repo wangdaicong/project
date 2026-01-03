@@ -94,7 +94,9 @@ mvn -s .\mvn-settings.xml spring-boot:run
 - `zone_balanced`：分区均衡（默认按 2:2:2 思路采样）
 - `markov`：马尔科夫链（相邻期转移得分 + 平滑）
 - `bayes`：贝叶斯推理（上一期特征桶 -> 下一期号码条件频率）
-- `ml`：机器学习（轻量线性打分：热度+遗漏+近期趋势+马尔科夫）
+- `ml`：机器学习（集成更稳+自动调权重：融合 hybrid/markov/bayes/ml 的号码评分后按权重采样，并基于最近一段历史滚动回测/网格搜索自动选择融合权重）
+
+兼容说明：`ensemble` / `ensemble_tuned` 仍可作为 `strategy` 入参使用，但服务端会统一按 `ml` 处理（推荐直接用 `ml`）。
 
 支持约束参数（可选）：
 

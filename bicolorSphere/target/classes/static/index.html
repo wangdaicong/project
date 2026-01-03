@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>双色球 - 趋势与预测</title>
   <style>
-    :root{--bg:#141b33;--card:rgba(255,255,255,.10);--bd:rgba(255,255,255,.14);--t:#eef2ff;--m:rgba(238,242,255,.74);--red:#ff4d4f;--blue:#3a7bff;--acc:#4f7cff}
-    html,body{height:100%;overflow-x:hidden}
+    :root{--bg:#eaf3ff;--card:#f8fbff;--bd:#cfe3ff;--t:#0b1b33;--m:#52627a;--red:#ff4d4f;--blue:#2563eb;--acc:#2f6feb}
+    html,body{height:100%}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--t)}
     .wrap{max-width:none;width:100%;margin:0 auto;padding:12px;box-sizing:border-box;min-height:100vh;display:flex;flex-direction:column}
     .top{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -16,39 +16,39 @@
     .row{display:grid;grid-template-columns:1fr;gap:14px;flex:1 1 auto;min-height:0}
     .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .btn{background:var(--acc);color:#fff;border:0;border-radius:10px;padding:10px 12px;cursor:pointer}
-    .btn.secondary{background:rgba(255,255,255,.10)}
+    .btn.secondary{background:#d6e7ff;color:#0b1b33}
     .btn:disabled{opacity:.6;cursor:not-allowed}
     select,input{background:#fff;border:1px solid rgba(0,0,0,.18);color:#111;border-radius:10px;padding:10px 12px}
     select option{color:#111}
     .status{color:var(--m);font-size:12px}
-    .divider{height:1px;background:rgba(255,255,255,.10);margin:12px 0}
+    .divider{height:1px;background:rgba(15,23,42,.10);margin:12px 0}
     .balls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
     .ball{width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px}
     .ball.red{background:var(--red)}
     .ball.blue{background:var(--blue)}
-    .pick{padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;background:rgba(255,255,255,.06);margin-bottom:10px}
+    .pick{padding:10px;border:1px solid rgba(15,23,42,.10);border-radius:12px;background:rgba(2,6,23,.02);margin-bottom:10px}
 
     .trendCard{display:flex;flex-direction:column;min-height:0}
-    .tableHeadWrap{overflow:hidden;flex:0 0 auto;background:rgba(20,28,56,.92);border:1px solid rgba(255,255,255,.10);border-radius:12px 12px 0 0;min-height:44px}
-    .tableScrollTop{display:block;overflow:auto;flex:0 0 auto;margin-bottom:6px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(0,0,0,.12)}
+    .tableHeadWrap{display:none}
+    .tableScrollTop{display:block;overflow:auto;flex:0 0 auto;margin-bottom:6px;border:1px solid rgba(11,27,51,.14);border-radius:10px;background:#f6faff}
     .tableScrollTopInner{height:1px}
-    .tableBodyWrap{overflow:auto;background:rgba(0,0,0,.10);border:1px solid rgba(255,255,255,.10);border-top:0;border-radius:0 0 12px 12px;flex:1 1 auto;min-height:260px;scrollbar-gutter:stable both-edges;overflow-x:auto}
+    .tableBodyWrap{overflow:hidden;background:#f6faff;border:1px solid rgba(11,27,51,.14);border-radius:12px;flex:0 0 auto;min-height:0}
     table{border-collapse:collapse;width:max-content;min-width:100%;transform-origin:left top}
-    th,td{border:1px solid rgba(255,255,255,.10);text-align:center;font-size:11px;line-height:20px;height:20px;padding:0;white-space:nowrap}
-    thead th{background:rgba(20,28,56,.95)}
-    th.group{font-weight:700;font-size:12px;color:rgba(232,236,255,.92)}
-    th.sub{font-weight:600;color:rgba(232,236,255,.80)}
-    td.left{font-size:12px;color:rgba(232,236,255,.92);background:rgba(0,0,0,.15)}
+    th,td{border:1px solid rgba(11,27,51,.12);text-align:center;font-size:11px;line-height:20px;height:20px;padding:0;white-space:nowrap}
+    thead th{background:#dcebff;position:sticky;top:0;z-index:3}
+    th.group{font-weight:700;font-size:12px;color:rgba(15,23,42,.90)}
+    th.sub{font-weight:600;color:rgba(15,23,42,.70)}
+    td.left{font-size:12px;color:rgba(15,23,42,.90);background:rgba(2,6,23,.03)}
     td.week{width:40px}
-    td.missR{color:rgba(255,200,200,.85)}
-    td.missB{color:rgba(170,205,255,.90)}
-    td.missG{color:rgba(220,220,220,.55)}
+    td.missR{color:rgba(185,28,28,.85)}
+    td.missB{color:rgba(29,78,216,.85)}
+    td.missG{color:rgba(100,116,139,.80)}
     .hit{width:16px;height:16px;border-radius:999px;margin:0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
     .hit.r{background:var(--red)}
     .hit.b{background:var(--blue)}
 
-    .modalMask{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
-    .modal{width:720px;max-width:calc(100vw - 28px);max-height:calc(100vh - 28px);background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+    .modalMask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+    .modal{width:min(980px,95vw);max-height:92vh;overflow:auto;background:#ffffff;color:#111;border-radius:16px;border:1px solid rgba(15,23,42,.12);box-shadow:0 20px 60px rgba(15,23,42,.18)}
     .modalHd{background:var(--acc);color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between}
     .modalHd .t{font-weight:700}
     .modalBd{padding:12px;color:#111;max-height:calc(100vh - 150px);overflow:auto}
@@ -154,7 +154,7 @@
               <option value="zone_balanced">分区均衡（2:2:2）</option>
               <option value="markov">马尔科夫链</option>
               <option value="bayes">贝叶斯推理</option>
-              <option value="ml">机器学习（轻量）</option>
+              <option value="ml">机器学习（集成更稳+自动调权重）</option>
             </select>
 
             <div class="lbl">注数</div>
@@ -199,7 +199,6 @@
         </div>
         <div class="modalFt">
           <button class="btnGhost" id="predictAgain">再来一注</button>
-          <button class="btn" id="predictOk">确定</button>
         </div>
       </div>
     </div>
@@ -238,9 +237,7 @@
           <div class="divider" style="background:rgba(0,0,0,.08);"></div>
           <div id="statsResult"></div>
         </div>
-        <div class="modalFt">
-          <button class="btn" id="statsOk">确定</button>
-        </div>
+        <div class="modalFt"></div>
       </div>
     </div>
 
@@ -266,9 +263,7 @@
           <div class="divider" style="background:rgba(0,0,0,.08);"></div>
           <div id="predLibResult"></div>
         </div>
-        <div class="modalFt">
-          <button class="btn" id="predLibOk">确定</button>
-        </div>
+        <div class="modalFt"></div>
       </div>
     </div>
   </div>
@@ -307,11 +302,9 @@
   const elPredictMask = document.getElementById('predictMask');
   const elPredictClose = document.getElementById('predictClose');
   const elPredictAgain = document.getElementById('predictAgain');
-  const elPredictOk = document.getElementById('predictOk');
 
   const elStatsMask = document.getElementById('statsMask');
   const elStatsClose = document.getElementById('statsClose');
-  const elStatsOk = document.getElementById('statsOk');
   const elStatsMeta = document.getElementById('statsMeta');
   const elStatsResult = document.getElementById('statsResult');
   const elStatsMinSum = document.getElementById('statsMinSum');
@@ -326,7 +319,6 @@
 
   const elPredLibMask = document.getElementById('predLibMask');
   const elPredLibClose = document.getElementById('predLibClose');
-  const elPredLibOk = document.getElementById('predLibOk');
   const elPredLibDrawNo = document.getElementById('predLibDrawNo');
   const elPredLibSize = document.getElementById('predLibSize');
   const elPredLibQuery = document.getElementById('predLibQuery');
@@ -449,7 +441,6 @@
   }
 
   function buildTable(trend) {
-    const headTable = document.getElementById('trendHeadTable');
     const bodyTable = document.getElementById('trendBodyTable');
     const drawNos0 = trend.drawNos || [];
     const dates0 = trend.drawDates || [];
@@ -532,14 +523,10 @@
       tbody.appendChild(tr);
     }
 
-    // Header table
-    headTable.innerHTML = '';
-    headTable.appendChild(buildColgroup());
-    headTable.appendChild(buildHeader());
-
-    // Body table (no thead)
+    // Single table (thead + tbody)
     bodyTable.innerHTML = '';
     bodyTable.appendChild(buildColgroup());
+    bodyTable.appendChild(buildHeader());
     bodyTable.appendChild(tbody);
 
     requestAnimationFrame(() => {
@@ -550,29 +537,19 @@
 
   function syncTopScroller() {
     try {
-      const headTable = document.getElementById('trendHeadTable');
+      const bodyTable = document.getElementById('trendBodyTable');
       const w = elTableBodyWrap && elTableBodyWrap.scrollWidth ? elTableBodyWrap.scrollWidth : 0;
       elTableScrollTopInner.style.width = w ? (w + 'px') : '0px';
-      elTableScrollTop.scrollLeft = elTableBodyWrap.scrollLeft;
-      if (headTable && elTableBodyWrap) headTable.style.marginLeft = (-elTableBodyWrap.scrollLeft) + 'px';
+
+      const x = elTableScrollTop ? elTableScrollTop.scrollLeft : 0;
+      if (bodyTable) bodyTable.style.marginLeft = (-x) + 'px';
     } catch (e) {
     }
   }
 
-  if (elTableBodyWrap) {
-    elTableBodyWrap.addEventListener('scroll', () => {
-      syncTopScroller();
-    });
-  }
   if (elTableScrollTop) {
     elTableScrollTop.addEventListener('scroll', () => {
-      if (!elTableBodyWrap) return;
-      elTableBodyWrap.scrollLeft = elTableScrollTop.scrollLeft;
-      try {
-        const headTable = document.getElementById('trendHeadTable');
-        if (headTable) headTable.style.marginLeft = (-elTableScrollTop.scrollLeft) + 'px';
-      } catch (e) {
-      }
+      syncTopScroller();
     });
   }
 
@@ -768,8 +745,21 @@
       const res = await fetch(api(`/api/predict?${q.join('&')}`));
       const data = await res.json();
       lastPredict = data;
+      if (data && data.error) {
+        elPredictStatus.innerText = String(data.error);
+        elPredictResult.innerHTML = '<div class="status">未生成结果：请放宽约束条件或提高 maxTry</div>';
+        return;
+      }
+
       renderPicks(data.picks || []);
-      elPredictStatus.innerText = '';
+
+      let tip = '';
+      if (data && data.explain && data.explain.weights) {
+        const w = data.explain.weights;
+        tip = `ML权重 hybrid=${w.hybrid}, markov=${w.markov}, bayes=${w.bayes}, ml=${w.ml}`;
+        if (data.explain.cacheTtlMinutes) tip += `（缓存${data.explain.cacheTtlMinutes}分钟）`;
+      }
+      elPredictStatus.innerText = tip;
     } finally {
       elPredictBtn.disabled = false;
     }
@@ -1107,7 +1097,6 @@
   });
 
   elPredLibClose.addEventListener('click', closePredLib);
-  elPredLibOk.addEventListener('click', closePredLib);
   elPredLibQuery.addEventListener('click', async () => {
     predLibPage = 0;
     await loadPredLib(0);
@@ -1124,7 +1113,6 @@
   elPredictCopyBtn.addEventListener('click', copyFirstPick);
 
   elPredictClose.addEventListener('click', closePredict);
-  elPredictOk.addEventListener('click', closePredict);
   elPredictAgain.addEventListener('click', () => {
     elPickCount.value = '1';
     predict();
@@ -1134,7 +1122,6 @@
   });
 
   elStatsClose.addEventListener('click', closeStats);
-  elStatsOk.addEventListener('click', closeStats);
   elStatsMask.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'statsMask') closeStats();
   });
