@@ -1,0 +1,23 @@
+# Secrets / local config
+/backend/src/main/resources/application.yml
+
+# Docs (per request)
+/README.md
+
+# Backend build
+/backend/target/
+/backend/.mvn/
+
+# Frontend deps/build
+/frontend/node_modules/
+/frontend/dist/
+
+# Local DB / runtime
+/backend/data/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.iml
+.idea/
+.vscode/
