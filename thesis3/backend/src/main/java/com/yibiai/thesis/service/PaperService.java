@@ -24,8 +24,10 @@ public class PaperService {
     }
 
     public Mono<String> generateOutline(OutlineRequest request) {
+        String languageHint = buildLanguageHint(request.getLanguages());
         String systemPrompt = """
             你是一位专业的学术论文写作专家。请根据用户提供的论文题目、类型、学科和字数要求，生成一份详细的三级论文大纲。
+            %s
             大纲要求：
             1. 结构完整，包含摘要、引言、正文（多章节）、结论、参考文献等部分
             2. 每个章节下设2-4个小节，小节下可设具体论点
@@ -33,12 +35,13 @@ public class PaperService {
             4. 符合学术论文写作规范
             5. 字数分配合理
             请直接输出大纲内容，使用markdown格式。
-            """;
+            """.formatted(languageHint);
 
         String userPrompt = String.format("""
             论文题目：%s
             论文类型：%s
             学科领域：%s
+            写作语言：%s
             目标字数：%d字
             %s
             %s
@@ -48,6 +51,7 @@ public class PaperService {
             request.getTitle(),
             request.getPaperType(),
             request.getSubject(),
+            formatLanguagesForPrompt(request.getLanguages()),
             request.getWordCount(),
             request.getCustomRequirements() != null ? "特殊要求：" + request.getCustomRequirements() : "",
             request.getReferenceContent() != null ? "参考资料：" + request.getReferenceContent() : ""
@@ -69,6 +73,7 @@ public class PaperService {
     }
 
     private String buildPaperSystemPrompt(PaperGenerateRequest request) {
+        String languageHint = buildLanguageHint(request.getLanguages());
         StringBuilder sb = new StringBuilder();
         sb.append("""
             你是一位专业的学术论文写作专家，拥有丰富的学术写作经验。请根据提供的大纲和要求，撰写一篇高质量的学术论文。
@@ -83,14 +88,21 @@ public class PaperService {
             7. 结尾包含致谢部分
             """);
 
+        if (!languageHint.isBlank()) {
+            sb.append(languageHint).append("\n");
+        }
+
         if (Boolean.TRUE.equals(request.getIncludeCharts())) {
             sb.append("8. 适当加入数据表格，使用markdown表格格式\n");
         }
+        if (Boolean.TRUE.equals(request.getIncludeImages())) {
+            sb.append("9. 适当加入插图，使用markdown图片语法 ![图1 图注](https://picsum.photos/seed/fig1/800/400) ，并在图片下方补充图注说明\n");
+        }
         if (Boolean.TRUE.equals(request.getIncludeFormulas())) {
-            sb.append("9. 适当加入数学公式，使用LaTeX格式\n");
+            sb.append("10. 适当加入数学公式，使用LaTeX格式\n");
         }
         if (Boolean.TRUE.equals(request.getIncludeCode())) {
-            sb.append("10. 适当加入代码示例，使用markdown代码块\n");
+            sb.append("11. 适当加入代码示例，使用markdown代码块\n");
         }
 
         sb.append("\n请直接输出论文内容，使用markdown格式。");
@@ -102,6 +114,7 @@ public class PaperService {
             论文题目：%s
             论文类型：%s
             学科领域：%s
+            写作语言：%s
             目标字数：%d字
             
             论文大纲：
@@ -115,11 +128,32 @@ public class PaperService {
             request.getTitle(),
             request.getPaperType(),
             request.getSubject(),
+            formatLanguagesForPrompt(request.getLanguages()),
             request.getWordCount(),
             request.getOutline(),
             request.getCustomRequirements() != null ? "特殊要求：" + request.getCustomRequirements() : "",
             request.getReferenceContent() != null ? "参考资料内容：" + request.getReferenceContent() : ""
         );
+    }
+
+    private String buildLanguageHint(List<String> languages) {
+        if (languages == null || languages.isEmpty()) {
+            return "";
+        }
+
+        String formatted = formatLanguagesForPrompt(languages);
+        if (formatted.isBlank()) {
+            return "";
+        }
+
+        return "写作语言要求：请严格使用 " + formatted + " 进行输出。";
+    }
+
+    private String formatLanguagesForPrompt(List<String> languages) {
+        if (languages == null || languages.isEmpty()) {
+            return "";
+        }
+        return String.join("/", languages);
     }
 
     public Mono<String> generateReferences(String title, String subject, int count) {

@@ -5,6 +5,7 @@ import {
   ChevronDown, Check, Loader2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { paperApi, fileApi } from '../api';
 import toast from 'react-hot-toast';
 
@@ -23,15 +24,30 @@ const wordCounts = [
   { label: '30000字', value: 30000 },
 ];
 
-function MainContent({ user, paperType, onLoginRequired }) {
+const languages = [
+  { label: '中文', value: '中文' },
+  { label: '英文', value: '英文' },
+];
+
+function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUsed }) {
   const [title, setTitle] = useState('');
+  
+  // 当从选题页面传入题目时，自动填充
+  React.useEffect(() => {
+    if (initialTitle) {
+      setTitle(initialTitle);
+      if (onTitleUsed) onTitleUsed();
+    }
+  }, [initialTitle, onTitleUsed]);
   const [subject, setSubject] = useState('(智能识别)');
+  const [language, setLanguage] = useState('中文');
   const [wordCount, setWordCount] = useState(10000);
   const [outline, setOutline] = useState('');
   const [content, setContent] = useState('');
   const [referenceContent, setReferenceContent] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const [includeCharts, setIncludeCharts] = useState(false);
+  const [includeImages, setIncludeImages] = useState(false);
   const [includeFormulas, setIncludeFormulas] = useState(false);
   const [includeCode, setIncludeCode] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,6 +68,7 @@ function MainContent({ user, paperType, onLoginRequired }) {
         title,
         paperType,
         subject,
+        languages: [language],
         wordCount,
         referenceContent: referenceContent || null
       });
@@ -91,10 +108,12 @@ function MainContent({ user, paperType, onLoginRequired }) {
         title,
         paperType,
         subject,
+        languages: [language],
         wordCount,
         outline,
         referenceContent: referenceContent || null,
         includeCharts,
+        includeImages,
         includeFormulas,
         includeCode
       };
@@ -212,7 +231,7 @@ function MainContent({ user, paperType, onLoginRequired }) {
             <div>
               <h2 className="text-2xl font-bold text-gray-800 flex items-center">
                 <Sparkles className="w-7 h-7 mr-2 text-blue-500" />
-                易笔AI写作
+                Easy AI 写作
               </h2>
               <p className="text-gray-500 mt-1">专业AI学术写作·无限改稿</p>
             </div>
@@ -249,17 +268,31 @@ function MainContent({ user, paperType, onLoginRequired }) {
               </div>
 
               {/* Subject Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">学科领域</label>
-                <select
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="select-field"
-                >
-                  {subjects.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">学科领域</label>
+                  <select
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="select-field"
+                  >
+                    {subjects.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">语言</label>
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="select-field"
+                  >
+                    {languages.map(l => (
+                      <option key={l.value} value={l.value}>{l.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Word Count */}
@@ -282,6 +315,16 @@ function MainContent({ user, paperType, onLoginRequired }) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">高级选项</label>
                 <div className="flex flex-wrap gap-3">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeImages}
+                      onChange={(e) => setIncludeImages(e.target.checked)}
+                      className="w-4 h-4 text-blue-500 rounded"
+                    />
+                    <Image className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm text-gray-600">插入图</span>
+                  </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -382,7 +425,7 @@ function MainContent({ user, paperType, onLoginRequired }) {
           </div>
 
           {/* Right Panel - Outline */}
-          <div className="glass-card p-6">
+          <div className="glass-card p-6 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-800">论文大纲</h3>
               <div className="flex space-x-2">
@@ -403,7 +446,7 @@ function MainContent({ user, paperType, onLoginRequired }) {
               value={outline}
               onChange={(e) => setOutline(e.target.value)}
               placeholder="大纲将在这里显示，您也可以手动输入或修改大纲..."
-              className="w-full h-[400px] p-4 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full flex-1 min-h-[400px] p-4 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
 
             {/* Generate Paper Button */}
@@ -477,7 +520,7 @@ function MainContent({ user, paperType, onLoginRequired }) {
 
             <div className="border border-gray-200 rounded-lg p-6 bg-white max-h-[600px] overflow-y-auto">
               <div className="markdown-content prose max-w-none">
-                <ReactMarkdown>{content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
               </div>
             </div>
           </div>

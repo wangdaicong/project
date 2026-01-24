@@ -3,6 +3,8 @@ import { Toaster } from 'react-hot-toast';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
+import TopicPage from './components/TopicPage';
+import HelpPage from './components/HelpPage';
 import LoginModal from './components/LoginModal';
 
 function App() {
@@ -10,6 +12,13 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [activeCategory, setActiveCategory] = useState('论文专区');
   const [activePaperType, setActivePaperType] = useState('毕业论文');
+  const [currentPage, setCurrentPage] = useState('main'); // 'main' | 'topic' | 'help'
+  const [selectedTopic, setSelectedTopic] = useState('');
+
+  const handleSelectTopic = (title) => {
+    setSelectedTopic(title);
+    setCurrentPage('main');
+  };
 
   return (
     <div className="min-h-screen">
@@ -18,6 +27,8 @@ function App() {
         user={user} 
         onLoginClick={() => setShowLogin(true)} 
         onLogout={() => setUser(null)}
+        currentPage={currentPage}
+        onNavigate={setCurrentPage}
       />
       
       <div className="flex">
@@ -28,11 +39,19 @@ function App() {
           setActivePaperType={setActivePaperType}
         />
         
-        <MainContent 
-          user={user}
-          paperType={activePaperType}
-          onLoginRequired={() => setShowLogin(true)}
-        />
+        {currentPage === 'topic' ? (
+          <TopicPage onSelectTopic={handleSelectTopic} />
+        ) : currentPage === 'help' ? (
+          <HelpPage />
+        ) : (
+          <MainContent 
+            user={user}
+            paperType={activePaperType}
+            onLoginRequired={() => setShowLogin(true)}
+            initialTitle={selectedTopic}
+            onTitleUsed={() => setSelectedTopic('')}
+          />
+        )}
       </div>
 
       {showLogin && (

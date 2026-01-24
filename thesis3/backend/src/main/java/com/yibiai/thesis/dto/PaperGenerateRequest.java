@@ -13,6 +13,7 @@ public class PaperGenerateRequest {
     private String customRequirements;
     private String referenceContent;
     private Boolean includeCharts = false;
+    private Boolean includeImages = false;
     private Boolean includeFormulas = false;
     private Boolean includeCode = false;
     private List<String> languages;

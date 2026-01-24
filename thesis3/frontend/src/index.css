@@ -73,6 +73,11 @@ body {
   @apply mb-4 text-gray-600 leading-relaxed;
 }
 
+.markdown-content {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .markdown-content ul, .markdown-content ol {
   @apply mb-4 pl-6;
 }
@@ -83,18 +88,34 @@ body {
 
 .markdown-content code {
   @apply bg-gray-100 px-2 py-1 rounded text-sm font-mono;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .markdown-content pre {
-  @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4;
+  @apply bg-gray-50 text-gray-800 p-4 rounded-lg overflow-x-auto mb-4;
+  border: 1px solid #e5e7eb;
+}
+
+.markdown-content pre code {
+  background: transparent;
+  padding: 0;
 }
 
 .markdown-content table {
   @apply w-full border-collapse mb-4;
+  table-layout: auto;
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .markdown-content th, .markdown-content td {
   @apply border border-gray-300 px-4 py-2 text-left;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .markdown-content th {
