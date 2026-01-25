@@ -20,6 +20,64 @@ function TopicPage({ onSelectTopic }) {
   const [loading, setLoading] = useState(false);
   const [topics, setTopics] = useState([]);
 
+  const parseTopicsFromRaw = (raw) => {
+    const makeTopic = (title, description = '', keywords = []) => ({
+      title: (title || '').trim(),
+      description: (description || '').trim(),
+      keywords: Array.isArray(keywords) ? keywords : []
+    });
+
+    let s = (raw || '').trim();
+    if (!s) return [];
+
+    s = s.replace(/```\s*json\s*/gi, '').replace(/```/g, '').trim();
+
+    const firstBrace = s.indexOf('{');
+    const lastBrace = s.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      s = s.slice(firstBrace, lastBrace + 1).trim();
+    }
+
+    try {
+      const parsed = JSON.parse(s);
+      const list = Array.isArray(parsed?.topics) ? parsed.topics : [];
+      const normalized = list.map((t) => {
+        if (typeof t === 'string') {
+          return makeTopic(t);
+        }
+        return makeTopic(t?.title, t?.description, t?.keywords);
+      }).filter(t => t.title);
+      if (normalized.length > 0) return normalized;
+    } catch {
+    }
+
+    const titles = [];
+    const titleRegex = /"title"\s*:\s*"([^\"]+)"/g;
+    let m;
+    while ((m = titleRegex.exec(s)) !== null) {
+      const t = (m[1] || '').trim();
+      if (t) titles.push(t);
+    }
+    if (titles.length > 0) {
+      return titles.map(t => makeTopic(t));
+    }
+
+    const lines = (raw || '').split('\n')
+      .map(l => l.trim())
+      .filter(l => l);
+
+    const filtered = lines
+      .map(line => line.replace(/^```\s*json\s*/i, '').replace(/^```/i, '').replace(/```$/i, '').trim())
+      .filter(line => line)
+      .filter(line => !/^[\{\}\[\],]*$/.test(line))
+      .filter(line => !/^"?(topics|title|description|keywords)"?\s*:/.test(line));
+
+    return filtered
+      .map((line) => line.replace(/^\d+[\.\、\)]?\s*/, '').replace(/^"|",?$|"$/g, '').trim())
+      .filter(t => t)
+      .map(t => makeTopic(t));
+  };
+
   const handleGenerate = async () => {
     if (!direction.trim()) {
       toast.error('请输入论文方向或关键词');
@@ -43,31 +101,12 @@ function TopicPage({ onSelectTopic }) {
       const result = await response.json();
 
       if (result.code === 200 && result.data) {
-        try {
-          // 尝试解析JSON格式的返回
-          const parsed = JSON.parse(result.data);
-          if (parsed.topics && Array.isArray(parsed.topics)) {
-            setTopics(parsed.topics);
-            toast.success(`成功生成 ${parsed.topics.length} 个选题建议！`);
-          } else {
-            // 如果不是预期格式，显示原始内容
-            setTopics([{ title: result.data, description: '', keywords: [] }]);
-          }
-        } catch {
-          // JSON解析失败，尝试按行分割
-          const lines = result.data.split('\n').filter(l => l.trim());
-          const parsedTopics = lines.map((line, i) => ({
-            title: line.replace(/^\d+[\.\、\)]?\s*/, '').trim(),
-            description: '',
-            keywords: []
-          })).filter(t => t.title);
-          
-          if (parsedTopics.length > 0) {
-            setTopics(parsedTopics);
-            toast.success(`成功生成 ${parsedTopics.length} 个选题建议！`);
-          } else {
-            toast.error('解析选题结果失败');
-          }
+        const parsedTopics = parseTopicsFromRaw(result.data);
+        if (parsedTopics.length > 0) {
+          setTopics(parsedTopics);
+          toast.success(`成功生成 ${parsedTopics.length} 个选题建议！`);
+        } else {
+          toast.error('解析选题结果失败');
         }
       } else {
         toast.error(result.message || '生成失败');

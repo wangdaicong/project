@@ -10,6 +10,7 @@ public class PaperGenerateRequest {
     private String subject;
     private Integer wordCount;
     private String outline;
+    private String previousContent;
     private String customRequirements;
     private String referenceContent;
     private Boolean includeCharts = false;

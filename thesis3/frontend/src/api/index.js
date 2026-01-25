@@ -19,6 +19,9 @@ export const paperApi = {
   generatePaper: (data) => api.post('/paper/generate', data),
   generateReferences: (title, subject, count = 40) => 
     api.post(`/paper/references?title=${encodeURIComponent(title)}&subject=${encodeURIComponent(subject)}&count=${count}`),
+  exportPaper: (format, data) => api.post(`/paper/export?format=${encodeURIComponent(format)}`, data, {
+    responseType: 'blob'
+  }),
   savePaper: (data) => api.post('/paper/save', data),
   getPaper: (id) => api.get(`/paper/${id}`),
   getUserPapers: (userId) => api.get(`/paper/user/${userId}`),

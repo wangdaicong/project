@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Sparkles, Upload, FileText, Download, RefreshCw, 
   Image, Table, Code, Calculator, Plus, Trash2, Edit3,
@@ -53,8 +54,61 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [generationIncomplete, setGenerationIncomplete] = useState(false);
+  const [missingSections, setMissingSections] = useState([]);
   const fileInputRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const downloadButtonRef = useRef(null);
+  const downloadMenuRef = useRef(null);
+  const [downloadMenuPos, setDownloadMenuPos] = useState({ top: 0, left: 0 });
+
+  React.useEffect(() => {
+    if (!showDownloadMenu) return;
+
+    const updatePos = () => {
+      const btn = downloadButtonRef.current;
+      if (!btn) return;
+      const rect = btn.getBoundingClientRect();
+      const menuWidth = 176; // tailwind w-44 => 11rem
+      const padding = 8;
+      const left = Math.max(padding, rect.right - menuWidth);
+      const top = rect.bottom + padding;
+      setDownloadMenuPos({ top, left });
+    };
+
+    updatePos();
+
+    const onDocMouseDown = (e) => {
+      const btn = downloadButtonRef.current;
+      const menu = downloadMenuRef.current;
+      if (btn && btn.contains(e.target)) return;
+      if (menu && menu.contains(e.target)) return;
+      setShowDownloadMenu(false);
+    };
+
+    window.addEventListener('resize', updatePos);
+    window.addEventListener('scroll', updatePos, true);
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => {
+      window.removeEventListener('resize', updatePos);
+      window.removeEventListener('scroll', updatePos, true);
+      document.removeEventListener('mousedown', onDocMouseDown);
+    };
+  }, [showDownloadMenu]);
+
+  const getCompletionMarkers = (outlineText) => {
+    if (!outlineText) return [];
+    const lines = outlineText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const headings = lines
+      .filter(l => /^#+\s+/.test(l))
+      .map(l => l.replace(/^#+\s+/, '').replace(/\*\*/g, '').trim())
+      .filter(Boolean);
+
+    const important = headings.filter(h => /(第[一二三四五六七八九十\d]+章|参考文献|致谢)/.test(h));
+    const list = (important.length > 0 ? important : headings).slice(-6);
+    return Array.from(new Set(list));
+  };
 
   const handleGenerateOutline = async () => {
     if (!title.trim()) {
@@ -86,7 +140,7 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
     }
   };
 
-  const handleGeneratePaper = async () => {
+  const handleGeneratePaper = async (mode = 'new') => {
     if (!outline.trim()) {
       toast.error('请先生成或输入大纲');
       return;
@@ -98,7 +152,13 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
 
     setGenerating(true);
     setProgress(0);
-    setContent('');
+    setGenerationIncomplete(false);
+    setMissingSections([]);
+    const baseContent = mode === 'continue' ? content : '';
+    let fullContent = baseContent;
+    if (mode !== 'continue') {
+      setContent('');
+    }
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -111,6 +171,7 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
         languages: [language],
         wordCount,
         outline,
+        previousContent: mode === 'continue' ? (baseContent.length > 4000 ? baseContent.slice(-4000) : baseContent) : null,
         referenceContent: referenceContent || null,
         includeCharts,
         includeImages,
@@ -162,13 +223,24 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
           if (!text) continue;
 
           receivedChars += text.length;
+          fullContent += text;
           setContent(prev => prev + text);
           setProgress(prev => (prev < 95 ? Math.min(95, prev + 1) : prev));
         }
       }
 
       setProgress(100);
-      toast.success('论文生成完成！');
+      const markers = getCompletionMarkers(outline);
+      const missing = markers.filter(m => m && !fullContent.includes(m));
+      if (missing.length > 0) {
+        setGenerationIncomplete(true);
+        setMissingSections(missing);
+        toast('生成结束：检测到内容可能未完整，可点击继续生成', {
+          style: { whiteSpace: 'nowrap' }
+        });
+      } else {
+        toast.success('论文生成完成！');
+      }
     } catch (error) {
       if (error.name === 'AbortError') {
         toast('已停止生成');
@@ -204,22 +276,66 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
     }
   };
 
-  const handleDownload = () => {
+  const downloadBlob = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const sanitizeFilename = (name) => {
+    const base = (name || '论文').trim() || '论文';
+    return base
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/\s+/g, ' ')
+      .slice(0, 120);
+  };
+
+  const handleDownload = async (format) => {
     if (!content) {
       toast.error('请先生成论文');
       return;
     }
 
-    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title || '论文'}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success('下载成功！');
+    const safeTitle = sanitizeFilename(title || '论文');
+
+    if (format === 'md') {
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      downloadBlob(blob, `${safeTitle}.md`);
+      toast.success('下载成功！');
+      return;
+    }
+
+    try {
+      const resp = await paperApi.exportPaper(format, { title: safeTitle, content });
+      const ext = format === 'pdf' ? 'pdf' : 'docx';
+      const mime = format === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      const blob = new Blob([resp.data], { type: mime });
+      downloadBlob(blob, `${safeTitle}.${ext}`);
+      toast.success('下载成功！');
+    } catch (e) {
+      try {
+        const data = e?.response?.data;
+        if (data instanceof Blob) {
+          const text = await data.text();
+          try {
+            const json = JSON.parse(text);
+            toast.error(json.message || json.error || '下载失败，请重试');
+          } catch {
+            toast.error(text || '下载失败，请重试');
+          }
+          return;
+        }
+      } catch {
+      }
+      toast.error(e?.response?.status ? `下载失败（${e.response.status}）` : '下载失败，请重试');
+    }
   };
 
   return (
@@ -496,27 +612,68 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
         {/* Paper Content */}
         {content && (
           <div className="glass-card p-6 mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">
+            <div className="flex items-start justify-between mb-4 gap-3">
+              <h3 className="text-lg font-semibold text-gray-800 flex-1 min-w-0 break-words">
                 论文正文 | {title} | {paperType} | {wordCount/10000}万字
               </h3>
-              <div className="flex space-x-2">
+              <div className="flex flex-nowrap items-center gap-2 shrink-0 whitespace-nowrap overflow-visible">
                 <button
-                  onClick={handleGeneratePaper}
+                  onClick={() => handleGeneratePaper('new')}
                   className="btn-secondary flex items-center space-x-2"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  <span>重新生成</span>
+                  <span className="whitespace-nowrap">重新生成</span>
                 </button>
-                <button
-                  onClick={handleDownload}
-                  className="btn-primary flex items-center space-x-2"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>下载论文</span>
-                </button>
+                {generationIncomplete && !generating && (
+                  <button
+                    onClick={() => handleGeneratePaper('continue')}
+                    className="btn-secondary flex items-center space-x-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="whitespace-nowrap">继续生成</span>
+                  </button>
+                )}
+                <div className="relative">
+                  <button
+                    ref={downloadButtonRef}
+                    onClick={() => setShowDownloadMenu(v => !v)}
+                    className="btn-primary flex items-center space-x-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="whitespace-nowrap">下载论文</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
+
+            {showDownloadMenu && createPortal(
+              <div
+                ref={downloadMenuRef}
+                className="w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
+                style={{ position: 'fixed', top: downloadMenuPos.top, left: downloadMenuPos.left }}
+              >
+                <button
+                  onClick={() => { setShowDownloadMenu(false); handleDownload('docx'); }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                >
+                  下载 Word (.docx)
+                </button>
+                <button
+                  onClick={() => { setShowDownloadMenu(false); handleDownload('pdf'); }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                >
+                  下载 PDF (.pdf)
+                </button>
+                <button
+                  onClick={() => { setShowDownloadMenu(false); handleDownload('md'); }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                >
+                  下载 Markdown (.md)
+                </button>
+              </div>,
+              document.body
+            )}
 
             <div className="border border-gray-200 rounded-lg p-6 bg-white max-h-[600px] overflow-y-auto">
               <div className="markdown-content prose max-w-none">

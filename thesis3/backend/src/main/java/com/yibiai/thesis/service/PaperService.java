@@ -4,10 +4,24 @@ import com.yibiai.thesis.dto.OutlineRequest;
 import com.yibiai.thesis.dto.PaperGenerateRequest;
 import com.yibiai.thesis.entity.Paper;
 import com.yibiai.thesis.repository.PaperRepository;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.kernel.font.PdfFontFactory.EmbeddingStrategy;
+import com.itextpdf.io.font.constants.StandardFonts;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Paragraph;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -110,7 +124,8 @@ public class PaperService {
     }
 
     private String buildPaperUserPrompt(PaperGenerateRequest request) {
-        return String.format("""
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("""
             论文题目：%s
             论文类型：%s
             学科领域：%s
@@ -119,21 +134,41 @@ public class PaperService {
             
             论文大纲：
             %s
-            
-            %s
-            %s
-            
-            请根据以上大纲，撰写完整的学术论文。
             """,
             request.getTitle(),
             request.getPaperType(),
             request.getSubject(),
             formatLanguagesForPrompt(request.getLanguages()),
             request.getWordCount(),
-            request.getOutline(),
-            request.getCustomRequirements() != null ? "特殊要求：" + request.getCustomRequirements() : "",
-            request.getReferenceContent() != null ? "参考资料内容：" + request.getReferenceContent() : ""
-        );
+            request.getOutline()
+        ));
+
+        if (request.getPreviousContent() != null && !request.getPreviousContent().isBlank()) {
+            String prev = request.getPreviousContent();
+            int max = 4000;
+            if (prev.length() > max) {
+                prev = prev.substring(prev.length() - max);
+            }
+            sb.append("\n已生成的论文内容（末尾片段，仅用于续写定位，请勿重复）：\n");
+            sb.append(prev);
+            sb.append("\n\n请从以上内容末尾继续撰写，避免重复，直到完整覆盖大纲剩余章节，并补齐参考文献与致谢。\n");
+        }
+
+        if (request.getCustomRequirements() != null && !request.getCustomRequirements().isBlank()) {
+            sb.append("\n特殊要求：").append(request.getCustomRequirements()).append("\n");
+        }
+
+        if (request.getReferenceContent() != null && !request.getReferenceContent().isBlank()) {
+            sb.append("\n参考资料内容：").append(request.getReferenceContent()).append("\n");
+        }
+
+        if (request.getPreviousContent() != null && !request.getPreviousContent().isBlank()) {
+            sb.append("\n继续输出剩余内容（不要重复已写部分）。");
+        } else {
+            sb.append("\n请根据以上大纲，撰写完整的学术论文。");
+        }
+
+        return sb.toString();
     }
 
     private String buildLanguageHint(List<String> languages) {
@@ -193,5 +228,88 @@ public class PaperService {
 
     public void deletePaper(Long id) {
         paperRepository.deleteById(id);
+    }
+
+    public byte[] exportDocx(String title, String markdownContent) {
+        try (XWPFDocument doc = new XWPFDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            if (title != null && !title.isBlank()) {
+                XWPFParagraph p = doc.createParagraph();
+                XWPFRun run = p.createRun();
+                run.setBold(true);
+                run.setFontSize(16);
+                run.setText(title);
+            }
+
+            String text = markdownContent == null ? "" : markdownContent;
+            for (String line : text.split("\\r?\\n", -1)) {
+                XWPFParagraph p = doc.createParagraph();
+                XWPFRun run = p.createRun();
+                run.setFontSize(12);
+                run.setText(line);
+            }
+
+            doc.write(out);
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("导出Word失败：" + e.getMessage(), e);
+        }
+    }
+
+    public byte[] exportPdf(String title, String markdownContent) {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PdfWriter writer = new PdfWriter(out);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf);
+
+            PdfFont font;
+            try {
+                font = tryLoadWindowsChineseFont();
+            } catch (Exception ignored) {
+                font = null;
+            }
+
+            if (font == null) {
+                try {
+                    font = PdfFontFactory.createFont("STSongStd-Light", "UniGB-UCS2-H", EmbeddingStrategy.PREFER_EMBEDDED);
+                } catch (Exception ignored) {
+                    font = PdfFontFactory.createFont(StandardFonts.HELVETICA);
+                }
+            }
+            document.setFont(font);
+
+            if (title != null && !title.isBlank()) {
+                document.add(new Paragraph(title).setFontSize(16));
+            }
+
+            String text = markdownContent == null ? "" : markdownContent;
+            for (String line : text.split("\\r?\\n", -1)) {
+                document.add(new Paragraph(line).setFontSize(11));
+            }
+
+            document.close();
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("导出PDF失败：" + e.getMessage(), e);
+        }
+    }
+
+    private PdfFont tryLoadWindowsChineseFont() {
+        String[] candidates = new String[] {
+                "C:/Windows/Fonts/msyh.ttc",
+                "C:/Windows/Fonts/msyh.ttf",
+                "C:/Windows/Fonts/simsun.ttc",
+                "C:/Windows/Fonts/simsun.ttf"
+        };
+
+        for (String p : candidates) {
+            try {
+                Path path = Path.of(p);
+                if (Files.exists(path)) {
+                    return PdfFontFactory.createFont(path.toString(), "Identity-H", EmbeddingStrategy.PREFER_EMBEDDED);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
     }
 }
