@@ -22,7 +22,16 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      <Toaster position="top-center" />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: {
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }
+        }}
+      />
       <Header 
         user={user} 
         onLoginClick={() => setShowLogin(true)} 
