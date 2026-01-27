@@ -5,6 +5,9 @@ import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import TopicPage from './components/TopicPage';
 import HelpPage from './components/HelpPage';
+import AigcPage from './components/AigcPage';
+import PaperPassPage from './components/PaperPassPage';
+import PptPage from './components/PptPage';
 import LoginModal from './components/LoginModal';
 
 function App() {
@@ -12,7 +15,7 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [activeCategory, setActiveCategory] = useState('论文专区');
   const [activePaperType, setActivePaperType] = useState('毕业论文');
-  const [currentPage, setCurrentPage] = useState('main'); // 'main' | 'topic' | 'help'
+  const [currentPage, setCurrentPage] = useState('main'); // 'main' | 'topic' | 'help' | 'aigc' | 'paperpass' | 'ppt'
   const [selectedTopic, setSelectedTopic] = useState('');
 
   const handleSelectTopic = (title) => {
@@ -52,6 +55,12 @@ function App() {
           <TopicPage onSelectTopic={handleSelectTopic} />
         ) : currentPage === 'help' ? (
           <HelpPage />
+        ) : currentPage === 'aigc' ? (
+          <AigcPage />
+        ) : currentPage === 'paperpass' ? (
+          <PaperPassPage />
+        ) : currentPage === 'ppt' ? (
+          <PptPage />
         ) : (
           <MainContent 
             user={user}

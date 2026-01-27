@@ -2,7 +2,6 @@
 /backend/src/main/resources/application.yml
 
 # Docs (per request)
-/README.md
 
 # Backend build
 /backend/target/

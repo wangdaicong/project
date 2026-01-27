@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, User, LogOut, Lightbulb, PenTool, HelpCircle } from 'lucide-react';
+import { FileText, User, LogOut, Lightbulb, PenTool, HelpCircle, Sparkles, FileCheck, Presentation } from 'lucide-react';
 
 function Header({ user, onLoginClick, onLogout, currentPage, onNavigate }) {
   return (
@@ -47,6 +47,33 @@ function Header({ user, onLoginClick, onLogout, currentPage, onNavigate }) {
           >
             <HelpCircle className="w-4 h-4" />
             <span>帮助</span>
+          </button>
+          <button 
+            onClick={() => onNavigate && onNavigate('aigc')}
+            className={`flex items-center space-x-1 transition-colors ${
+              currentPage === 'aigc' ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-blue-600'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>降AIGC率</span>
+          </button>
+          <button 
+            onClick={() => onNavigate && onNavigate('paperpass')}
+            className={`flex items-center space-x-1 transition-colors ${
+              currentPage === 'paperpass' ? 'text-green-600 font-medium' : 'text-gray-600 hover:text-green-600'
+            }`}
+          >
+            <FileCheck className="w-4 h-4" />
+            <span>降查重率</span>
+          </button>
+          <button 
+            onClick={() => onNavigate && onNavigate('ppt')}
+            className={`flex items-center space-x-1 transition-colors ${
+              currentPage === 'ppt' ? 'text-orange-600 font-medium' : 'text-gray-600 hover:text-orange-600'
+            }`}
+          >
+            <Presentation className="w-4 h-4" />
+            <span>答辩PPT</span>
           </button>
         </nav>
 
