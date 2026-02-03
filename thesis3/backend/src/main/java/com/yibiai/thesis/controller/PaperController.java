@@ -65,6 +65,10 @@ public class PaperController {
             bytes = paperService.exportDocx(title, request.getContent());
             contentType = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
             ext = "docx";
+        } else if ("txt".equalsIgnoreCase(format) || "text".equalsIgnoreCase(format)) {
+            bytes = paperService.exportTxt(request.getContent());
+            contentType = MediaType.TEXT_PLAIN;
+            ext = "txt";
         } else {
             return ResponseEntity.badRequest().build();
         }

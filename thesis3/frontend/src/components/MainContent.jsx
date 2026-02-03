@@ -312,10 +312,12 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
 
     try {
       const resp = await paperApi.exportPaper(format, { title: safeTitle, content });
-      const ext = format === 'pdf' ? 'pdf' : 'docx';
+      const ext = format === 'pdf' ? 'pdf' : (format === 'txt' ? 'txt' : 'docx');
       const mime = format === 'pdf'
         ? 'application/pdf'
-        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        : (format === 'txt'
+          ? 'text/plain;charset=utf-8'
+          : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       const blob = new Blob([resp.data], { type: mime });
       downloadBlob(blob, `${safeTitle}.${ext}`);
       toast.success('下载成功！');
@@ -670,6 +672,12 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
                   className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
                 >
                   下载 Markdown (.md)
+                </button>
+                <button
+                  onClick={() => { setShowDownloadMenu(false); handleDownload('txt'); }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                >
+                  下载 TXT (.txt)
                 </button>
               </div>,
               document.body

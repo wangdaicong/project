@@ -1,6 +1,18 @@
 # Secrets / local config
 /backend/src/main/resources/application.yml
 
+/.env
+/.env.*
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.properties.local
+*.secrets.*
+
+README.md
+
 # Docs (per request)
 
 # Backend build
