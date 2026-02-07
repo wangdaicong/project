@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
-  Sparkles, Upload, FileText, Download, RefreshCw, 
+  Sparkles, PenTool, Upload, FileText, Download, RefreshCw, 
   Image, Table, Code, Calculator, Plus, Trash2, Edit3,
   ChevronDown, Check, Loader2
 } from 'lucide-react';
@@ -348,8 +348,8 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-                <Sparkles className="w-7 h-7 mr-2 text-blue-500" />
-                Easy AI 写作
+                <PenTool className="w-7 h-7 mr-2 text-blue-500" />
+                论文智能写作
               </h2>
               <p className="text-gray-500 mt-1">专业AI学术写作·无限改稿</p>
             </div>

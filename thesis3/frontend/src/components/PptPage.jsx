@@ -192,20 +192,15 @@ function PptPage() {
   };
 
   return (
-    <main className="flex-1 p-6 bg-gray-50 min-h-screen">
+    <main className="flex-1 p-6 overflow-y-auto">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-2">
-            一键生成答辩PPT
-          </h1>
-          <p className="text-lg text-gray-600">专业精美PPT 毕业答辩对着念 高效轻松拿捏！</p>
-        </div>
-
-        <div className="flex justify-center gap-4 mb-6">
-          <button className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all flex items-center gap-2">
-            <Presentation className="w-5 h-5" />
-            生成答辩PPT
-          </button>
+          <div className="w-full bg-white rounded-2xl shadow-sm px-8 py-6">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-2">
+              一键生成答辩PPT
+            </h1>
+            <p className="text-lg text-gray-800">专业精美PPT 毕业答辩对着念 高效轻松拿捏！</p>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
@@ -318,50 +313,52 @@ function PptPage() {
                 className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transition-all flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                下载PPT
+                导出PPTX
               </button>
             </div>
             <div className="p-4 bg-gray-50 rounded-xl max-h-96 overflow-y-auto">
-              <pre className="whitespace-pre-wrap text-gray-700 font-sans">{pptOutline}</pre>
+              <pre className="whitespace-pre-wrap text-gray-700 font-sans text-sm">{pptOutline}</pre>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <Presentation className="w-5 h-5 text-orange-600" />
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Presentation className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-800">专业模板</h4>
+                <p className="text-xs text-gray-500">精美答辩风格</p>
+              </div>
             </div>
-            <div>
-              <h4 className="font-medium text-gray-800">专业模板</h4>
-              <p className="text-xs text-gray-500">精美答辩风格</p>
+            <div className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-800">智能提炼</h4>
+                <p className="text-xs text-gray-500">自动提取要点</p>
+              </div>
             </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-red-600" />
+            <div className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Zap className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-800">一键生成</h4>
+                <p className="text-xs text-gray-500">快速高效</p>
+              </div>
             </div>
-            <div>
-              <h4 className="font-medium text-gray-800">智能提炼</h4>
-              <p className="text-xs text-gray-500">自动提取要点</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h4 className="font-medium text-gray-800">一键生成</h4>
-              <p className="text-xs text-gray-500">快速高效</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <Check className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <h4 className="font-medium text-gray-800">完美适配</h4>
-              <p className="text-xs text-gray-500">答辩场景优化</p>
+            <div className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <Check className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-800">完美适配</h4>
+                <p className="text-xs text-gray-500">答辩场景优化</p>
+              </div>
             </div>
           </div>
         </div>

@@ -40,31 +40,13 @@ function Header({ user, onLoginClick, onLogout, currentPage, onNavigate }) {
             <span>论文写作</span>
           </button>
           <button 
-            onClick={() => onNavigate && onNavigate('help')}
-            className={`flex items-center space-x-1 transition-colors ${
-              currentPage === 'help' ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-blue-600'
-            }`}
-          >
-            <HelpCircle className="w-4 h-4" />
-            <span>帮助</span>
-          </button>
-          <button 
             onClick={() => onNavigate && onNavigate('aigc')}
             className={`flex items-center space-x-1 transition-colors ${
               currentPage === 'aigc' ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-blue-600'
             }`}
           >
             <Sparkles className="w-4 h-4" />
-            <span>降AIGC率</span>
-          </button>
-          <button 
-            onClick={() => onNavigate && onNavigate('paperpass')}
-            className={`flex items-center space-x-1 transition-colors ${
-              currentPage === 'paperpass' ? 'text-green-600 font-medium' : 'text-gray-600 hover:text-green-600'
-            }`}
-          >
-            <FileCheck className="w-4 h-4" />
-            <span>降查重率</span>
+            <span>降AIGC|查重率</span>
           </button>
           <button 
             onClick={() => onNavigate && onNavigate('ppt')}

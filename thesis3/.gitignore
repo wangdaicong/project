@@ -11,9 +11,8 @@
 *.properties.local
 *.secrets.*
 
-README.md
-
 # Docs (per request)
+ README.md
 
 # Backend build
 /backend/target/
