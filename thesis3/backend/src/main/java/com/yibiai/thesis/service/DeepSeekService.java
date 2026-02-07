@@ -55,8 +55,10 @@ public class DeepSeekService {
             ObjectNode requestBody = objectMapper.createObjectNode();
             requestBody.put("model", model);
             requestBody.put("max_tokens", 8192);
-            requestBody.put("temperature", 1.0);
-            requestBody.put("top_p", 0.95);
+            requestBody.put("temperature", 1.3);
+            requestBody.put("top_p", 0.97);
+            requestBody.put("frequency_penalty", 0.8);
+            requestBody.put("presence_penalty", 0.6);
 
             ArrayNode messages = requestBody.putArray("messages");
             ObjectNode systemMsg = messages.addObject();
@@ -112,8 +114,10 @@ public class DeepSeekService {
             ObjectNode requestBody = objectMapper.createObjectNode();
             requestBody.put("model", model);
             requestBody.put("max_tokens", 8192);
-            requestBody.put("temperature", 1.0);
-            requestBody.put("top_p", 0.95);
+            requestBody.put("temperature", 1.3);
+            requestBody.put("top_p", 0.97);
+            requestBody.put("frequency_penalty", 0.8);
+            requestBody.put("presence_penalty", 0.6);
             requestBody.put("stream", true);
 
             ArrayNode msgArr = requestBody.putArray("messages");

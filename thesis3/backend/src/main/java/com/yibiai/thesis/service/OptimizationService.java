@@ -500,6 +500,7 @@ public class OptimizationService {
 
             String rawOutput = String.join("", chunks);
             String output = (prefix != null && !prefix.isEmpty()) ? prefix + rawOutput : rawOutput;
+            output = postProcessText(output);
 
             if ("polish".equals(stage)) {
                 seg.setPolishedText(output);
@@ -747,6 +748,7 @@ public class OptimizationService {
 
                 String rawOutput = String.join("", chunks);
                 String output = (prefix != null && !prefix.isEmpty()) ? prefix + rawOutput : rawOutput;
+                output = postProcessText(output);
 
                 if ("polish".equals(stage)) {
                     seg.setPolishedText(output);
@@ -897,6 +899,131 @@ public class OptimizationService {
     private static final Pattern CHINESE_PATTERN = Pattern.compile("[\\u4e00-\\u9fff]");
     private static final Pattern ENGLISH_PATTERN = Pattern.compile("[a-zA-Z]");
     private static final Pattern PREFIX_PATTERN = Pattern.compile("^([\\u4e00-\\u9fff\\w]{2,10}[：:])(.+)", Pattern.DOTALL);
+
+    private static final String[][] ZH_SYNONYMS = {
+            {"然而", "不过", "但"},
+            {"因此", "所以", "于是"},
+            {"此外", "另外", "再者"},
+            {"同时", "一并", "也"},
+            {"显著", "明显", "可观"},
+            {"提升", "提高", "改善"},
+            {"具有", "拥有", "带有"},
+            {"进行", "开展", "着手"},
+            {"实现", "达成", "做到"},
+            {"促进", "推动", "带动"},
+            {"导致", "引发", "造成"},
+            {"表明", "说明", "揭示"},
+            {"认为", "觉得", "主张"},
+            {"探讨", "讨论", "审视"},
+            {"影响", "作用", "波及"},
+            {"有效", "切实", "确实"},
+            {"重要", "关键", "紧要"},
+            {"研究", "探究", "考察"},
+            {"分析", "剖析", "解读"},
+            {"提出", "给出", "指出"},
+            {"采用", "使用", "运用"},
+            {"基于", "依据", "立足于"},
+            {"通过", "借助", "经由"},
+            {"利用", "借用", "凭借"},
+            {"针对", "面向", "就"},
+            {"涉及", "牵涉", "关乎"},
+            {"呈现", "展现", "表现出"},
+            {"趋势", "走向", "态势"},
+            {"框架", "体系", "架构"},
+            {"构建", "搭建", "建立"},
+            {"优化", "改进", "完善"},
+            {"验证", "检验", "证实"},
+            {"揭示", "披露", "呈现"},
+            {"阐述", "论述", "叙述"},
+            {"特征", "特点", "属性"},
+            {"机制", "机理", "原理"},
+            {"策略", "方案", "对策"},
+            {"层面", "维度", "角度"},
+            {"视角", "角度", "立场"},
+            {"背景", "语境", "情境"},
+            {"领域", "方面", "范畴"},
+            {"模式", "方式", "路径"},
+            {"体现", "反映", "折射"},
+            {"凸显", "突出", "彰显"},
+            {"深入", "深层", "透彻"},
+            {"广泛", "普遍", "大范围"},
+            {"逐步", "渐渐", "一步步"},
+            {"不断", "持续", "日益"},
+            {"充分", "足够", "完全"},
+            {"明确", "清楚", "清晰"},
+    };
+
+    private static final String[][] ZH_PHRASE_SYNONYMS = {
+            {"在一定程度上", "从某种角度看", "某种意义上"},
+            {"与此同时", "在这一过程中", "伴随着"},
+            {"在此基础上", "以此为起点", "沿着这一思路"},
+            {"值得关注的是", "耐人寻味的是", "一个有趣的现象是"},
+            {"不难发现", "可以看到", "显而易见"},
+            {"换言之", "也就是说", "简单来讲"},
+            {"总体而言", "大体上看", "从整体来说"},
+            {"就目前来看", "从现有情况看", "以当下的认知"},
+            {"产生了深远影响", "带来了不小的冲击", "搅动了原有格局"},
+            {"发挥着重要作用", "扮演着关键角色", "起到了不小的作用"},
+            {"具有重要意义", "有着不容小觑的价值", "意义不可低估"},
+            {"提供了有力支撑", "给出了坚实的依据", "构成了有力的佐证"},
+    };
+
+    private String postProcessText(String text) {
+        if (text == null || text.isEmpty()) return text;
+        if (isEnglishDominant(text)) return text;
+
+        java.util.Random rng = new java.util.Random();
+
+        StringBuilder result = new StringBuilder(text);
+        for (String[] group : ZH_PHRASE_SYNONYMS) {
+            String target = group[0];
+            int pos = 0;
+            while ((pos = result.indexOf(target, pos)) >= 0) {
+                if (rng.nextDouble() < 0.6) {
+                    String replacement = group[1 + rng.nextInt(group.length - 1)];
+                    result.replace(pos, pos + target.length(), replacement);
+                    pos += replacement.length();
+                } else {
+                    pos += target.length();
+                }
+            }
+        }
+
+        for (String[] group : ZH_SYNONYMS) {
+            String target = group[0];
+            int pos = 0;
+            while ((pos = result.indexOf(target, pos)) >= 0) {
+                if (rng.nextDouble() < 0.55) {
+                    String replacement = group[1 + rng.nextInt(group.length - 1)];
+                    result.replace(pos, pos + target.length(), replacement);
+                    pos += replacement.length();
+                } else {
+                    pos += target.length();
+                }
+            }
+        }
+
+        String s = result.toString();
+
+        String[] sentences = s.split("(?<=。)");
+        if (sentences.length > 3) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < sentences.length; i++) {
+                String sent = sentences[i];
+                if (sent.trim().isEmpty()) { sb.append(sent); continue; }
+                if (rng.nextDouble() < 0.15 && sent.contains("，") && !sent.contains("——")) {
+                    int commaIdx = sent.indexOf("，");
+                    if (commaIdx > 2 && commaIdx < sent.length() - 3) {
+                        sent = sent.substring(0, commaIdx) + "——" + sent.substring(commaIdx + 1);
+                    }
+                }
+                sb.append(sent);
+            }
+            s = sb.toString();
+        }
+
+        return s;
+    }
 
     private boolean isEnglishDominant(String text) {
         if (text == null || text.isBlank()) return false;
