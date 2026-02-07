@@ -8,7 +8,10 @@ import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.font.PdfFontFactory.EmbeddingStrategy;
 import com.itextpdf.io.font.constants.StandardFonts;
+import com.itextpdf.kernel.pdf.PdfOutline;
+import com.itextpdf.kernel.pdf.navigation.PdfExplicitDestination;
 import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfPage;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Paragraph;
@@ -22,9 +25,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTP;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTDecimalNumber;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSimpleField;
 
 import java.io.ByteArrayOutputStream;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -237,9 +242,48 @@ public class PaperService {
         paperRepository.deleteById(id);
     }
 
+    private String sanitizeExportContent(String title, String markdownContent) {
+        if (markdownContent == null || markdownContent.isBlank()) {
+            return markdownContent;
+        }
+
+        String normalized = markdownContent.replace("\r\n", "\n").replace('\r', '\n');
+        String trimmedStart = normalized.stripLeading();
+
+        boolean looksLikeAiPreface = trimmedStart.startsWith("好的，作为")
+                || trimmedStart.startsWith("好的，作为一名")
+                || trimmedStart.contains("作为一名专业的学术论文写作专家")
+                || trimmedStart.contains("我将严格遵循您提供的")
+                || trimmedStart.contains("为您撰写这篇题为");
+        if (looksLikeAiPreface) {
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("(?m)^(#{1,6})\\s+.+$")
+                    .matcher(trimmedStart);
+            if (m.find()) {
+                trimmedStart = trimmedStart.substring(m.start()).stripLeading();
+            }
+        }
+
+        if (title != null && !title.isBlank()) {
+            String t = title.trim();
+            java.util.regex.Matcher hm = java.util.regex.Pattern
+                    .compile("(?m)^#{1,6}\\s+(.+)$")
+                    .matcher(trimmedStart);
+            if (hm.find() && hm.start() == 0) {
+                String headingText = hm.group(1).trim();
+                if (headingText.equals(t)) {
+                    trimmedStart = trimmedStart.substring(hm.end()).stripLeading();
+                }
+            }
+        }
+
+        return trimmedStart;
+    }
+
     public byte[] exportDocx(String title, String markdownContent) {
         try (XWPFDocument doc = new XWPFDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            buildDocxThesis(doc, title, markdownContent);
+            String content = sanitizeExportContent(title, markdownContent);
+            buildDocxThesis(doc, title, content);
 
             doc.write(out);
             return out.toByteArray();
@@ -270,7 +314,8 @@ public class PaperService {
             }
             document.setFont(font);
 
-            buildPdfThesis(document, title, markdownContent, font);
+            String content = sanitizeExportContent(title, markdownContent);
+            buildPdfThesis(document, pdf, title, content, font);
 
             document.close();
             return out.toByteArray();
@@ -300,7 +345,7 @@ public class PaperService {
     }
 
     public byte[] exportTxt(String markdownContent) {
-        String text = toPlainText(markdownContent);
+        String text = toPlainText(sanitizeExportContent(null, markdownContent));
         return text.getBytes(StandardCharsets.UTF_8);
     }
 
@@ -395,8 +440,13 @@ public class PaperService {
         }
     }
 
-    private void buildPdfThesis(Document document, String title, String markdownContent, PdfFont baseFont) {
+    private void buildPdfThesis(Document document, PdfDocument pdf, String title, String markdownContent, PdfFont baseFont) {
         List<Block> blocks = parseMarkdownBlocks(markdownContent);
+
+        PdfOutline rootOutline = pdf.getOutlines(false);
+        PdfOutline lastH1 = null;
+        PdfOutline lastH2 = null;
+        PdfOutline lastH3 = null;
 
         if (title != null && !title.isBlank()) {
             Paragraph p = new Paragraph(title.trim())
@@ -449,7 +499,10 @@ public class PaperService {
                     h2 = 0;
                     h3 = 0;
                     String headingText = normalizeHeadingNumbering(b.text, 1, h1, h2, h3);
-                    addPdfHeading(document, baseFont, headingText, 1);
+                    PdfOutline o = addPdfHeading(document, pdf, baseFont, headingText, 1, rootOutline);
+                    lastH1 = o;
+                    lastH2 = null;
+                    lastH3 = null;
                 }
                 case HEADING_2 -> {
                     if (h1 == 0) {
@@ -458,7 +511,10 @@ public class PaperService {
                     h2++;
                     h3 = 0;
                     String headingText = normalizeHeadingNumbering(b.text, 2, h1, h2, h3);
-                    addPdfHeading(document, baseFont, headingText, 2);
+                    PdfOutline parent = lastH1 != null ? lastH1 : rootOutline;
+                    PdfOutline o = addPdfHeading(document, pdf, baseFont, headingText, 2, parent);
+                    lastH2 = o;
+                    lastH3 = null;
                 }
                 case HEADING_3 -> {
                     if (h1 == 0) {
@@ -469,7 +525,9 @@ public class PaperService {
                     }
                     h3++;
                     String headingText = normalizeHeadingNumbering(b.text, 3, h1, h2, h3);
-                    addPdfHeading(document, baseFont, headingText, 3);
+                    PdfOutline parent = lastH2 != null ? lastH2 : (lastH1 != null ? lastH1 : rootOutline);
+                    PdfOutline o = addPdfHeading(document, pdf, baseFont, headingText, 3, parent);
+                    lastH3 = o;
                 }
                 case PARAGRAPH -> addPdfBody(document, baseFont, b.text, 12);
             }
@@ -615,6 +673,14 @@ public class PaperService {
         } else {
             p.setStyle("Heading3");
         }
+
+        CTP ctp = p.getCTP();
+        if (!ctp.isSetPPr()) {
+            ctp.addNewPPr();
+        }
+        CTDecimalNumber outlineLvl = ctp.getPPr().isSetOutlineLvl() ? ctp.getPPr().getOutlineLvl() : ctp.getPPr().addNewOutlineLvl();
+        outlineLvl.setVal(BigInteger.valueOf(Math.max(0, Math.min(2, level - 1))));
+
         if (level == 1) {
             p.setAlignment(ParagraphAlignment.CENTER);
         } else {
@@ -718,7 +784,7 @@ public class PaperService {
         document.add(new Paragraph(" ").setFont(font).setMargin(0));
     }
 
-    private void addPdfHeading(Document document, PdfFont font, String heading, int level) {
+    private PdfOutline addPdfHeading(Document document, PdfDocument pdf, PdfFont font, String heading, int level, PdfOutline parentOutline) {
         Paragraph p = new Paragraph(heading)
                 .setFont(font)
                 .setBold()
@@ -727,6 +793,14 @@ public class PaperService {
                 .setMarginTop(12)
                 .setMarginBottom(6);
         document.add(p);
+
+        PdfOutline outline = parentOutline.addOutline(heading);
+        PdfPage page = pdf.getLastPage();
+        if (page != null) {
+            float top = page.getPageSize().getTop();
+            outline.addDestination(PdfExplicitDestination.createFitH(page, top));
+        }
+        return outline;
     }
 
     private void addPdfReferences(Document document, PdfFont font, String markdown) {

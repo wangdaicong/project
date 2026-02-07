@@ -45,6 +45,8 @@ function AigcPage() {
   const dropZoneRef = useRef(null);
   const eventSourceRef = useRef(null);
   const progressPollerRef = useRef(null);
+  const sessionRefreshRef = useRef(null);
+  const historyPollerRef = useRef(null);
 
   const currentStageLabel = useMemo(() => {
     if (activeStage === 'enhance') return '原创性增强';
@@ -72,8 +74,33 @@ function AigcPage() {
         clearInterval(progressPollerRef.current);
         progressPollerRef.current = null;
       }
+      if (sessionRefreshRef.current) {
+        clearInterval(sessionRefreshRef.current);
+        sessionRefreshRef.current = null;
+      }
+      if (historyPollerRef.current) {
+        clearInterval(historyPollerRef.current);
+        historyPollerRef.current = null;
+      }
     };
   }, []);
+
+  useEffect(() => {
+    const hasActive = sessions.some(s => s.status === 'queued' || s.status === 'processing');
+    if (hasActive && !sessionRefreshRef.current) {
+      sessionRefreshRef.current = setInterval(async () => {
+        try {
+          const resp = await api.get('/optimization/sessions');
+          if (resp?.data?.code === 200) {
+            setSessions(Array.isArray(resp.data.data) ? resp.data.data : []);
+          }
+        } catch {}
+      }, 3000);
+    } else if (!hasActive && sessionRefreshRef.current) {
+      clearInterval(sessionRefreshRef.current);
+      sessionRefreshRef.current = null;
+    }
+  }, [sessions]);
 
   const aggregatedOutput = useMemo(() => {
     const entries = Object.entries(activeSegments)
@@ -129,8 +156,21 @@ function AigcPage() {
           setTotalSegments(typeof latest.totalSegments === 'number' ? latest.totalSegments : 0);
         }
       }
-    } catch {
-      toast.error('停止失败');
+    } catch (err) {
+      const status = err?.response?.status;
+      const backendCode = err?.response?.data?.code;
+      const backendMsg = err?.response?.data?.message;
+      const msg = err?.message;
+      toast.error(
+        `停止失败${status ? ` (HTTP ${status})` : ''}${backendCode ? ` (code ${backendCode})` : ''}`
+        + `${backendMsg ? `：${backendMsg}` : msg ? `：${msg}` : ''}`
+      );
+      try {
+        const refreshed = await api.get('/optimization/sessions');
+        if (refreshed?.data?.code === 200) {
+          setSessions(Array.isArray(refreshed.data.data) ? refreshed.data.data : []);
+        }
+      } catch {}
     }
   };
 
@@ -178,8 +218,13 @@ function AigcPage() {
 
   const openHistory = async (s) => {
     if (!s?.sessionId) return;
+    if (historyPollerRef.current) {
+      clearInterval(historyPollerRef.current);
+      historyPollerRef.current = null;
+    }
+    const isActive = s.status === 'processing' || s.status === 'queued';
     setHistoryOpen(true);
-    setHistoryTab('result');
+    setHistoryTab(isActive ? 'changes' : 'result');
     setHistorySession(null);
     setHistorySegments([]);
     setHistoryChanges([]);
@@ -202,6 +247,43 @@ function AigcPage() {
       setHistoryLoading(false);
     }
   };
+
+  useEffect(() => {
+    const isActive = historyOpen && historySession?.sessionId &&
+      (historySession.status === 'processing' || historySession.status === 'queued');
+    if (isActive && !historyPollerRef.current) {
+      const sid = historySession.sessionId;
+      historyPollerRef.current = setInterval(async () => {
+        try {
+          const [p, seg, ch] = await Promise.all([
+            refreshProgress(sid),
+            api.get(`/optimization/sessions/${sid}/segments`).catch(() => null),
+            api.get(`/optimization/sessions/${sid}/changes`).catch(() => null)
+          ]);
+          if (p) setHistorySession(p);
+          if (seg?.data?.code === 200) {
+            setHistorySegments(Array.isArray(seg.data.data) ? seg.data.data : []);
+          }
+          if (ch?.data?.code === 200) {
+            setHistoryChanges(Array.isArray(ch.data.data) ? ch.data.data : []);
+          }
+          if (p && ['completed', 'failed', 'stopped'].includes(p.status)) {
+            clearInterval(historyPollerRef.current);
+            historyPollerRef.current = null;
+          }
+        } catch {}
+      }, 2000);
+    } else if (!isActive && historyPollerRef.current) {
+      clearInterval(historyPollerRef.current);
+      historyPollerRef.current = null;
+    }
+    return () => {
+      if (!historyOpen && historyPollerRef.current) {
+        clearInterval(historyPollerRef.current);
+        historyPollerRef.current = null;
+      }
+    };
+  }, [historyOpen, historySession?.sessionId, historySession?.status]);
 
   const handleDeleteSession = async (sessionId) => {
     if (!sessionId) return;
@@ -582,8 +664,8 @@ function AigcPage() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
               强力降论文AIGC痕迹|查重率
             </h1>
-            <p className="text-gray-700 font-medium">疑似度降低 60%</p>
-            <p className="text-lg text-gray-800 mt-2">一键降低 论文aigc率 ai痕迹 查重率</p>
+            <p className="text-gray-700 font-medium">疑似度降低 80%</p>
+            <p className="text-lg text-gray-800 mt-2">一键降低 论文AIGC率 AI痕迹 查重率</p>
           </div>
         </div>
 
@@ -757,38 +839,6 @@ function AigcPage() {
           </div>
         )}
 
-        {activeSession?.sessionId && (
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">分段结果</h3>
-              <button
-                onClick={() => refreshSegments(activeSession.sessionId)}
-                className="btn-secondary"
-                disabled={segmentsLoading}
-              >
-                {segmentsLoading ? '加载中...' : '刷新'}
-              </button>
-            </div>
-            {segmentsList.length === 0 ? (
-              <div className="text-sm text-gray-500">暂无分段结果</div>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {segmentsList.map(seg => {
-                  const text = stageView === 'polish'
-                    ? (seg.polishedText || seg.originalText || '')
-                    : (seg.enhancedText || seg.polishedText || seg.originalText || '');
-                  return (
-                    <div key={seg.id} className="p-4 bg-gray-50 rounded-xl">
-                      <div className="text-xs text-gray-500 mb-2">段落 {Number(seg.segmentIndex) + 1} ｜ {seg.status}</div>
-                      <pre className="whitespace-pre-wrap text-gray-700 font-sans text-sm">{text}</pre>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
         {sessions.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -829,12 +879,20 @@ function AigcPage() {
                   const deletable = s.status !== 'processing' && s.status !== 'queued';
                   const stoppable = s.status === 'processing' || s.status === 'queued';
                   return (
-                    <button
+                    <div
                       key={s.id}
-                      className={`w-full text-left px-4 py-4 rounded-2xl border transition-all ${
+                      role="button"
+                      tabIndex={0}
+                      className={`w-full text-left px-4 py-4 rounded-2xl border transition-all cursor-pointer ${
                         isActive ? 'border-blue-400 bg-blue-50' : 'border-gray-100 hover:bg-gray-50'
                       }`}
                       onClick={() => openHistory(s)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openHistory(s);
+                        }
+                      }}
                     >
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3 min-w-0">
@@ -882,7 +940,7 @@ function AigcPage() {
                         </div>
                       </div>
                       <div className="mt-3 text-sm text-gray-500">...</div>
-                    </button>
+                    </div>
                   );
                 })}
             </div>
@@ -978,6 +1036,21 @@ function AigcPage() {
                   </div>
                 </div>
 
+                {(historySession?.status === 'processing' || historySession?.status === 'queued') && (
+                  <div className="mt-3 mx-auto max-w-md">
+                    <div className="flex items-center justify-between mb-1 text-xs text-gray-600">
+                      <span>{historySession?.currentStage === 'enhance' ? '原创性增强' : '论文润色'}</span>
+                      <span>{Math.round(historySession?.progress || 0)}%</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
+                        style={{ width: `${Math.round(historySession?.progress || 0)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {historyLoading ? (
                   <div className="flex items-center justify-center py-16 text-gray-500">
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -1036,30 +1109,45 @@ function AigcPage() {
                         <div className="text-base font-semibold text-gray-900 mb-4">变更对照记录</div>
                         <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
                         {historyChanges.length === 0 ? (
-                          <div className="text-sm text-gray-500">暂无变更记录</div>
+                          <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+                            {(historySession?.status === 'processing' || historySession?.status === 'queued') ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                等待段落处理完成...
+                              </>
+                            ) : '暂无变更记录'}
+                          </div>
                         ) : (
-                          historyChanges.map((c) => (
+                          <>
+                          {historyChanges.map((c) => (
                             <div key={c.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                               <div className="flex items-center gap-2 mb-4">
                                 <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700">
                                   段落 {Number(c.segmentIndex) + 1}
                                 </span>
-                                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${c.stage === 'enhance' ? 'bg-purple-50 text-purple-700' : 'bg-sky-50 text-sky-700'}`}>
-                                  {c.stage === 'enhance' ? '增强' : '润色'}
+                                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${c.stage === 'enhance' ? 'bg-purple-50 text-purple-700' : c.stage === 'translate' ? 'bg-green-50 text-green-700' : 'bg-sky-50 text-sky-700'}`}>
+                                  {c.stage === 'enhance' ? '增强' : c.stage === 'translate' ? '翻译' : '润色'}
                                 </span>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="rounded-2xl border border-red-100 bg-red-50/40 p-4">
                                   <div className="text-sm font-semibold text-gray-700 mb-3">修改前</div>
-                                  <pre className="whitespace-pre-wrap text-gray-700 font-sans text-sm">{c.beforeText || ''}</pre>
+                                  <pre className="whitespace-pre-wrap break-all text-gray-700 font-sans text-sm">{c.beforeText || ''}</pre>
                                 </div>
                                 <div className="rounded-2xl border border-green-100 bg-green-50/40 p-4">
                                   <div className="text-sm font-semibold text-gray-700 mb-3">修改后</div>
-                                  <pre className="whitespace-pre-wrap text-gray-700 font-sans text-sm">{c.afterText || ''}</pre>
+                                  <pre className="whitespace-pre-wrap break-all text-gray-700 font-sans text-sm">{c.afterText || ''}</pre>
                                 </div>
                               </div>
                             </div>
-                          ))
+                          ))}
+                          {(historySession?.status === 'processing' || historySession?.status === 'queued') && (
+                            <div className="flex items-center gap-2 text-sm text-blue-600 py-3 justify-center">
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              正在处理中，新段落将自动显示...
+                            </div>
+                          )}
+                          </>
                         )}
                         </div>
                       </div>

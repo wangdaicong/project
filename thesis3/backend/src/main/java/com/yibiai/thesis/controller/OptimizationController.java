@@ -183,11 +183,13 @@ public class OptimizationController {
                     .contentType(new MediaType("application", "json", StandardCharsets.UTF_8))
                     .body(ApiResponse.error(404, "会话不存在"));
         }
-        if (!"queued".equals(s.getStatus()) && !"processing".equals(s.getStatus())) {
+        String rawStatus = s.getStatus();
+        String status = rawStatus == null ? "" : rawStatus.trim().toLowerCase();
+        if (!"queued".equals(status) && !"processing".equals(status)) {
             return ResponseEntity
                     .badRequest()
                     .contentType(new MediaType("application", "json", StandardCharsets.UTF_8))
-                    .body(ApiResponse.error(400, "只能停止排队中或处理中的会话"));
+                    .body(ApiResponse.error(400, "只能停止排队中或处理中的会话（当前状态：" + (rawStatus == null ? "null" : rawStatus) + "）"));
         }
         s.setStatus("stopped");
         s.setErrorMessage("用户手动停止");
