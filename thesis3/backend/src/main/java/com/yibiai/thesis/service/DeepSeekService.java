@@ -50,15 +50,23 @@ public class DeepSeekService {
     }
 
     public Mono<String> chat(String systemPrompt, String userPrompt) {
+        return chat(systemPrompt, userPrompt, 0.7, 0.0, 0.0);
+    }
+
+    public Mono<String> chat(String systemPrompt, String userPrompt,
+                             double temperature, double frequencyPenalty, double presencePenalty) {
         return Mono.defer(() -> {
             String key = normalizedApiKey();
             ObjectNode requestBody = objectMapper.createObjectNode();
             requestBody.put("model", model);
             requestBody.put("max_tokens", 8192);
-            requestBody.put("temperature", 1.3);
-            requestBody.put("top_p", 0.97);
-            requestBody.put("frequency_penalty", 0.8);
-            requestBody.put("presence_penalty", 0.6);
+            requestBody.put("temperature", temperature);
+            if (frequencyPenalty != 0.0) {
+                requestBody.put("frequency_penalty", frequencyPenalty);
+            }
+            if (presencePenalty != 0.0) {
+                requestBody.put("presence_penalty", presencePenalty);
+            }
 
             ArrayNode messages = requestBody.putArray("messages");
             ObjectNode systemMsg = messages.addObject();
@@ -114,10 +122,7 @@ public class DeepSeekService {
             ObjectNode requestBody = objectMapper.createObjectNode();
             requestBody.put("model", model);
             requestBody.put("max_tokens", 8192);
-            requestBody.put("temperature", 1.3);
-            requestBody.put("top_p", 0.97);
-            requestBody.put("frequency_penalty", 0.8);
-            requestBody.put("presence_penalty", 0.6);
+            requestBody.put("temperature", 0.7);
             requestBody.put("stream", true);
 
             ArrayNode msgArr = requestBody.putArray("messages");

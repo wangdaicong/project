@@ -87,15 +87,202 @@ public class PaperService {
     }
 
     public Flux<String> generatePaperStream(PaperGenerateRequest request) {
-        String systemPrompt = buildPaperSystemPrompt(request);
-        String userPrompt = buildPaperUserPrompt(request);
-        return deepSeekService.chatStream(systemPrompt, userPrompt);
+        List<String> sections = parseOutlineSections(request.getOutline());
+
+        if (sections.size() <= 1) {
+            String systemPrompt = buildPaperSystemPrompt(request);
+            String userPrompt = buildPaperUserPrompt(request);
+            return deepSeekService.chatStream(systemPrompt, userPrompt);
+        }
+
+        int totalWords = request.getWordCount() != null ? request.getWordCount() : 10000;
+        String languageHint = buildLanguageHint(request.getLanguages());
+        String lang = formatLanguagesForPrompt(request.getLanguages());
+
+        StringBuilder previousContent = new StringBuilder();
+
+        Flux<String> pipeline = Flux.empty();
+        for (int i = 0; i < sections.size(); i++) {
+            final int idx = i;
+            final String section = sections.get(i);
+            int sectionWords = estimateSectionWords(section, sections.size(), totalWords, idx);
+
+            if (idx > 0) {
+                pipeline = pipeline.concatWith(Flux.just("\n\n"));
+            }
+            pipeline = pipeline.concatWith(Flux.defer(() -> {
+                String sysPrompt = buildSectionSystemPrompt(request, section, idx, sections.size(), languageHint);
+                String usrPrompt = buildSectionUserPrompt(request, section, sectionWords, lang, previousContent.toString());
+
+                return deepSeekService.chatStream(sysPrompt, usrPrompt)
+                        .doOnNext(chunk -> previousContent.append(chunk));
+            }));
+        }
+
+        return pipeline;
     }
 
     public Mono<String> generatePaper(PaperGenerateRequest request) {
         String systemPrompt = buildPaperSystemPrompt(request);
         String userPrompt = buildPaperUserPrompt(request);
         return deepSeekService.chat(systemPrompt, userPrompt);
+    }
+
+    private List<String> parseOutlineSections(String outline) {
+        if (outline == null || outline.isBlank()) {
+            return List.of();
+        }
+
+        List<String> sections = new java.util.ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        String[] lines = outline.split("\\r?\\n");
+
+        for (String line : lines) {
+            if (isTopLevelHeading(line) && current.length() > 0) {
+                sections.add(current.toString().trim());
+                current = new StringBuilder();
+            }
+            current.append(line).append("\n");
+        }
+        if (current.length() > 0) {
+            sections.add(current.toString().trim());
+        }
+
+        return sections;
+    }
+
+    private boolean isTopLevelHeading(String line) {
+        String trimmed = line.trim();
+        if (trimmed.startsWith("# ") && !trimmed.startsWith("## ")) {
+            return true;
+        }
+        if (trimmed.startsWith("## ") && !trimmed.startsWith("### ")) {
+            return true;
+        }
+        if (trimmed.matches("^第[一二三四五六七八九十\\d]+章.*") ||
+            trimmed.matches("^摘\\s*要.*") ||
+            trimmed.matches("^Abstract.*") ||
+            trimmed.matches("^参考文献.*") ||
+            trimmed.matches("^致\\s*谢.*") ||
+            trimmed.matches("^附\\s*录.*") ||
+            trimmed.matches("^引\\s*言.*") ||
+            trimmed.matches("^结\\s*论.*") ||
+            trimmed.matches("^绪\\s*论.*")) {
+            if (!trimmed.startsWith("#")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int estimateSectionWords(String section, int totalSections, int totalWords, int index) {
+        String trimmed = section.trim().toLowerCase();
+        if (trimmed.contains("摘要") || trimmed.contains("abstract")) {
+            return Math.max(300, totalWords / 15);
+        }
+        if (trimmed.contains("致谢")) {
+            return 500;
+        }
+        if (trimmed.contains("参考文献")) {
+            return 800;
+        }
+        if (trimmed.contains("附录")) {
+            return Math.max(500, totalWords / 10);
+        }
+        int contentSections = Math.max(1, totalSections - 3);
+        return totalWords / contentSections;
+    }
+
+    private String buildSectionSystemPrompt(PaperGenerateRequest request, String section,
+                                             int sectionIndex, int totalSections, String languageHint) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("""
+            你是一位专业的学术论文写作专家。你正在分章节撰写一篇学术论文。
+            请根据提供的章节大纲，撰写该章节的完整内容。
+            
+            写作要求：
+            1. 严格按照提供的章节大纲结构进行写作，大纲中的每一个小节、子节都必须完整体现，不得遗漏
+            2. 语言专业、准确，符合学术论文规范
+            3. 论述有理有据，逻辑严密
+            4. 只输出当前章节的内容，不要输出其他章节
+            """);
+
+        if (sectionIndex == 0 && section.toLowerCase().contains("摘要")) {
+            sb.append("5. 包含中文摘要和关键词，紧接着必须包含对应的英文摘要（Abstract）和英文关键词（Keywords），英文摘要是中文摘要的直译\n");
+        }
+
+        if (section.contains("参考文献")) {
+            sb.append("5. 生成真实可查的参考文献，格式使用GB/T 7714标准，至少20条\n");
+        }
+
+        if (section.contains("致谢")) {
+            sb.append("5. 撰写完整的致谢内容（约300-500字），感谢导师的指导、学校老师的教诲、同学朋友的帮助、家人的支持等，语言真挚诚恳，符合学术论文致谢规范\n");
+        }
+
+        if (!languageHint.isBlank()) {
+            sb.append(languageHint).append("\n");
+        }
+
+        if (Boolean.TRUE.equals(request.getIncludeCharts())) {
+            sb.append("适当加入数据表格，使用markdown表格格式\n");
+        }
+        if (Boolean.TRUE.equals(request.getIncludeImages())) {
+            sb.append("适当加入插图，使用markdown图片语法 ![图注](https://picsum.photos/seed/fig1/800/400)\n");
+        }
+        if (Boolean.TRUE.equals(request.getIncludeFormulas())) {
+            sb.append("适当加入数学公式，使用LaTeX格式\n");
+        }
+        if (Boolean.TRUE.equals(request.getIncludeCode())) {
+            sb.append("适当加入代码示例，使用markdown代码块\n");
+        }
+
+        sb.append("\n请直接输出该章节内容，使用markdown格式。不要输出与当前章节无关的内容。");
+        return sb.toString();
+    }
+
+    private String buildSectionUserPrompt(PaperGenerateRequest request, String sectionOutline,
+                                           int sectionWords, String lang, String previousContent) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("""
+            论文题目：%s
+            论文类型：%s
+            学科领域：%s
+            写作语言：%s
+            
+            当前章节大纲：
+            %s
+            
+            该章节目标字数：约%d字
+            """,
+            request.getTitle(),
+            request.getPaperType(),
+            request.getSubject(),
+            lang,
+            sectionOutline,
+            sectionWords
+        ));
+
+        if (previousContent != null && !previousContent.isBlank()) {
+            String prev = previousContent;
+            int max = 2000;
+            if (prev.length() > max) {
+                prev = prev.substring(prev.length() - max);
+            }
+            sb.append("\n前文末尾（用于衔接上下文，请勿重复）：\n");
+            sb.append(prev);
+            sb.append("\n");
+        }
+
+        if (request.getCustomRequirements() != null && !request.getCustomRequirements().isBlank()) {
+            sb.append("\n特殊要求：").append(request.getCustomRequirements()).append("\n");
+        }
+
+        if (request.getReferenceContent() != null && !request.getReferenceContent().isBlank()) {
+            sb.append("\n参考资料：").append(request.getReferenceContent()).append("\n");
+        }
+
+        sb.append("\n请撰写该章节的完整内容。");
+        return sb.toString();
     }
 
     private String buildPaperSystemPrompt(PaperGenerateRequest request) {
@@ -105,13 +292,14 @@ public class PaperService {
             你是一位专业的学术论文写作专家，拥有丰富的学术写作经验。请根据提供的大纲和要求，撰写一篇高质量的学术论文。
             
             写作要求：
-            1. 严格按照提供的大纲结构进行写作
+            1. 严格按照提供的大纲结构进行写作，大纲中的每一个章节、小节、子节都必须在论文正文中完整体现，不得遗漏任何一个章节
             2. 语言专业、准确，符合学术论文规范
             3. 论述有理有据，逻辑严密
             4. 适当引用文献，在文中标注引用位置
             5. 生成真实可查的参考文献，格式规范
-            6. 包含中英文摘要和关键词
+            6. 包含中文摘要和关键词，紧接着必须包含对应的英文摘要（Abstract）和英文关键词（Keywords），英文摘要是中文摘要的直译
             7. 结尾包含致谢部分
+            8. 必须一次性输出完整论文，从摘要到致谢，不得中途截断或省略任何章节
             """);
 
         if (!languageHint.isBlank()) {

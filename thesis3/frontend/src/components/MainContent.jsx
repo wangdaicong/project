@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Sparkles, PenTool, Upload, FileText, Download, RefreshCw, 
-  Image, Table, Code, Calculator, Plus, Trash2, Edit3,
+  Image, Table, Code, Calculator, Trash2, Edit3,
   ChevronDown, Check, Loader2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -55,8 +55,6 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
-  const [generationIncomplete, setGenerationIncomplete] = useState(false);
-  const [missingSections, setMissingSections] = useState([]);
   const fileInputRef = useRef(null);
   const abortControllerRef = useRef(null);
   const downloadButtonRef = useRef(null);
@@ -97,18 +95,6 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
     };
   }, [showDownloadMenu]);
 
-  const getCompletionMarkers = (outlineText) => {
-    if (!outlineText) return [];
-    const lines = outlineText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const headings = lines
-      .filter(l => /^#+\s+/.test(l))
-      .map(l => l.replace(/^#+\s+/, '').replace(/\*\*/g, '').trim())
-      .filter(Boolean);
-
-    const important = headings.filter(h => /(第[一二三四五六七八九十\d]+章|参考文献|致谢)/.test(h));
-    const list = (important.length > 0 ? important : headings).slice(-6);
-    return Array.from(new Set(list));
-  };
 
   const handleGenerateOutline = async () => {
     if (!title.trim()) {
@@ -140,7 +126,7 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
     }
   };
 
-  const handleGeneratePaper = async (mode = 'new') => {
+  const handleGeneratePaper = async () => {
     if (!outline.trim()) {
       toast.error('请先生成或输入大纲');
       return;
@@ -152,13 +138,8 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
 
     setGenerating(true);
     setProgress(0);
-    setGenerationIncomplete(false);
-    setMissingSections([]);
-    const baseContent = mode === 'continue' ? content : '';
-    let fullContent = baseContent;
-    if (mode !== 'continue') {
-      setContent('');
-    }
+    setContent('');
+    let fullContent = '';
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -171,7 +152,7 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
         languages: [language],
         wordCount,
         outline,
-        previousContent: mode === 'continue' ? (baseContent.length > 4000 ? baseContent.slice(-4000) : baseContent) : null,
+        previousContent: null,
         referenceContent: referenceContent || null,
         includeCharts,
         includeImages,
@@ -225,22 +206,13 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
           receivedChars += text.length;
           fullContent += text;
           setContent(prev => prev + text);
-          setProgress(prev => (prev < 95 ? Math.min(95, prev + 1) : prev));
+          const estimatedTotalChars = wordCount * 1.5;
+          setProgress(Math.min(95, Math.round((receivedChars / estimatedTotalChars) * 100)));
         }
       }
 
       setProgress(100);
-      const markers = getCompletionMarkers(outline);
-      const missing = markers.filter(m => m && !fullContent.includes(m));
-      if (missing.length > 0) {
-        setGenerationIncomplete(true);
-        setMissingSections(missing);
-        toast('生成结束：检测到内容可能未完整，可点击继续生成', {
-          style: { whiteSpace: 'nowrap' }
-        });
-      } else {
-        toast.success('论文生成完成！');
-      }
+      toast.success('论文生成完成！');
     } catch (error) {
       if (error.name === 'AbortError') {
         toast('已停止生成');
@@ -626,15 +598,6 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
                   <RefreshCw className="w-4 h-4" />
                   <span className="whitespace-nowrap">重新生成</span>
                 </button>
-                {generationIncomplete && !generating && (
-                  <button
-                    onClick={() => handleGeneratePaper('continue')}
-                    className="btn-secondary flex items-center space-x-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span className="whitespace-nowrap">继续生成</span>
-                  </button>
-                )}
                 <div className="relative">
                   <button
                     ref={downloadButtonRef}

@@ -16,13 +16,15 @@ public class TopicService {
     public Mono<String> suggestTopics(TopicSuggestRequest request) {
         String systemPrompt = buildSystemPrompt(request);
         String userPrompt = buildUserPrompt(request);
-        return deepSeekService.chat(systemPrompt, userPrompt);
+        return deepSeekService.chat(systemPrompt, userPrompt, 0.8, 0.0, 0.0);
     }
 
     private String buildSystemPrompt(TopicSuggestRequest request) {
         int count = request.getCount() != null ? request.getCount() : 10;
         return String.format("""
-            你是一位资深的学术论文选题专家，拥有丰富的学术研究经验。请根据用户提供的研究方向和要求，生成%d个高质量的论文题目建议。
+            你是一位资深的学术论文选题专家，拥有丰富的学术研究经验。请根据用户提供的研究方向和要求，生成恰好%d个高质量的论文题目建议。
+            
+            【重要】你必须严格生成恰好%d个题目，不多不少。topics数组中必须包含恰好%d个对象。
             
             选题要求：
             1. 题目要具有学术价值和研究意义
@@ -32,7 +34,7 @@ public class TopicService {
             5. 每个题目都要有创新点或独特视角
             
             输出格式要求：
-            请严格按照以下JSON格式输出，不要添加任何其他内容：
+            请严格按照以下JSON格式输出，不要添加任何其他内容，topics数组必须包含恰好%d个元素：
             {
               "topics": [
                 {
@@ -43,7 +45,7 @@ public class TopicService {
                 ...
               ]
             }
-            """, count);
+            """, count, count, count, count);
     }
 
     private String buildUserPrompt(TopicSuggestRequest request) {
@@ -59,7 +61,7 @@ public class TopicService {
         }
         
         int count = request.getCount() != null ? request.getCount() : 10;
-        sb.append("请生成").append(count).append("个论文题目建议。");
+        sb.append("请严格生成恰好").append(count).append("个论文题目建议，不多不少，必须是").append(count).append("个。");
         
         return sb.toString();
     }
