@@ -55,11 +55,26 @@ public class PaperService {
             你是一位专业的学术论文写作专家。请根据用户提供的论文题目、类型、学科和字数要求，生成一份详细的三级论文大纲。
             %s
             大纲要求：
-            1. 结构完整，包含摘要、引言、正文（多章节）、结论、参考文献等部分
+            1. 结构完整，包含摘要、引言、正文（多章节）、结论、参考文献、致谢等部分
             2. 每个章节下设2-4个小节，小节下可设具体论点
             3. 内容专业、逻辑清晰、层次分明
             4. 符合学术论文写作规范
             5. 字数分配合理
+            
+            格式要求（必须严格遵守）：
+            - 论文标题使用一级标题：# 论文标题
+            - 摘要使用二级标题：## 摘要（摘要下面不要添加任何三级或四级标题）
+            - 所有正文章节（包括绪论和结论）都必须编号为"第X章"，使用二级标题：## 第一章 绪论、## 第二章 xxx、...、## 第七章 结论
+            - 参考文献使用二级标题：## 参考文献，下方注明"（采用GB/T 7714标准格式，不少于20篇）"
+            - 致谢使用二级标题：## 致谢，下方注明"（约300-500字，感谢导师、老师、同学、家人等）"
+            - 参考文献和致谢部分不要添加三级或四级标题
+            - 只有正文章节（第一章、第二章…）才使用三级标题：### 1.1 xxx
+            - 只有正文章节才使用四级标题：#### 1.1.1 xxx
+            - 大纲末尾添加"---"分隔线，然后给出各部分的建议字数分配，格式如：
+              摘要：约300-500字
+              第一章 绪论：约800-1000字
+              第二章 xxx：约1500-2000字
+              ...以此类推
             请直接输出大纲内容，使用markdown格式。
             """.formatted(languageHint);
 
@@ -98,28 +113,27 @@ public class PaperService {
         int totalWords = request.getWordCount() != null ? request.getWordCount() : 10000;
         String languageHint = buildLanguageHint(request.getLanguages());
         String lang = formatLanguagesForPrompt(request.getLanguages());
+        int sectionCount = sections.size();
 
         StringBuilder previousContent = new StringBuilder();
 
-        Flux<String> pipeline = Flux.empty();
-        for (int i = 0; i < sections.size(); i++) {
-            final int idx = i;
-            final String section = sections.get(i);
-            int sectionWords = estimateSectionWords(section, sections.size(), totalWords, idx);
+        return Flux.range(0, sectionCount)
+                .concatMap(idx -> {
+                    String section = sections.get(idx);
+                    int sectionWords = estimateSectionWords(section, sectionCount, totalWords, idx);
+                    String sysPrompt = buildSectionSystemPrompt(request, section, idx, sectionCount, languageHint);
+                    String usrPrompt = buildSectionUserPrompt(request, section, sectionWords, lang, previousContent.toString());
 
-            if (idx > 0) {
-                pipeline = pipeline.concatWith(Flux.just("\n\n"));
-            }
-            pipeline = pipeline.concatWith(Flux.defer(() -> {
-                String sysPrompt = buildSectionSystemPrompt(request, section, idx, sections.size(), languageHint);
-                String usrPrompt = buildSectionUserPrompt(request, section, sectionWords, lang, previousContent.toString());
+                    System.out.println("[PaperService] 开始生成第 " + (idx + 1) + "/" + sectionCount + " 节: " + section.split("\\n")[0]);
 
-                return deepSeekService.chatStream(sysPrompt, usrPrompt)
-                        .doOnNext(chunk -> previousContent.append(chunk));
-            }));
-        }
+                    Flux<String> sectionFlux = deepSeekService.chatStream(sysPrompt, usrPrompt)
+                            .doOnNext(chunk -> previousContent.append(chunk));
 
-        return pipeline;
+                    if (idx > 0) {
+                        return Flux.just("\n\n").concatWith(sectionFlux);
+                    }
+                    return sectionFlux;
+                });
     }
 
     public Mono<String> generatePaper(PaperGenerateRequest request) {
@@ -133,12 +147,15 @@ public class PaperService {
             return List.of();
         }
 
+        // 预处理：截断大纲末尾的"字数分配建议"等非正文内容
+        String cleanedOutline = removeTrailingNotes(outline);
+
         List<String> sections = new java.util.ArrayList<>();
         StringBuilder current = new StringBuilder();
-        String[] lines = outline.split("\\r?\\n");
+        String[] lines = cleanedOutline.split("\\r?\\n");
 
         for (String line : lines) {
-            if (isTopLevelHeading(line) && current.length() > 0) {
+            if (isChapterHeading(line) && current.length() > 0) {
                 sections.add(current.toString().trim());
                 current = new StringBuilder();
             }
@@ -148,30 +165,97 @@ public class PaperService {
             sections.add(current.toString().trim());
         }
 
+        // 第一个section如果不是章节内容（只是论文标题），合并到第二个section
+        if (sections.size() > 1 && !isChapterHeading(sections.get(0).split("\\n")[0])) {
+            // 检查第一个section的首行是否为章节标题
+            boolean firstIsChapter = false;
+            for (String line : sections.get(0).split("\\n")) {
+                if (isChapterHeading(line)) {
+                    firstIsChapter = true;
+                    break;
+                }
+            }
+            if (!firstIsChapter) {
+                sections.set(1, sections.get(0) + "\n" + sections.get(1));
+                sections.remove(0);
+            }
+        }
+
+        // 确保有摘要章节
+        boolean hasAbstract = sections.stream().anyMatch(s -> {
+            String lower = s.toLowerCase();
+            return lower.contains("摘要") || lower.contains("abstract");
+        });
+        if (!hasAbstract && !sections.isEmpty()) {
+            sections.add(0, "摘要");
+        }
+
+        System.out.println("[PaperService] 大纲解析为 " + sections.size() + " 个章节:");
+        for (int i = 0; i < sections.size(); i++) {
+            String firstLine = sections.get(i).split("\\n")[0];
+            System.out.println("  [" + (i + 1) + "] " + firstLine);
+        }
+
         return sections;
     }
 
-    private boolean isTopLevelHeading(String line) {
-        String trimmed = line.trim();
-        if (trimmed.startsWith("# ") && !trimmed.startsWith("## ")) {
-            return true;
-        }
-        if (trimmed.startsWith("## ") && !trimmed.startsWith("### ")) {
-            return true;
-        }
-        if (trimmed.matches("^第[一二三四五六七八九十\\d]+章.*") ||
-            trimmed.matches("^摘\\s*要.*") ||
-            trimmed.matches("^Abstract.*") ||
-            trimmed.matches("^参考文献.*") ||
-            trimmed.matches("^致\\s*谢.*") ||
-            trimmed.matches("^附\\s*录.*") ||
-            trimmed.matches("^引\\s*言.*") ||
-            trimmed.matches("^结\\s*论.*") ||
-            trimmed.matches("^绪\\s*论.*")) {
-            if (!trimmed.startsWith("#")) {
-                return true;
+    /**
+     * 移除大纲末尾的非正文内容（字数分配建议、注意事项等）
+     */
+    private String removeTrailingNotes(String outline) {
+        String[] lines = outline.split("\\r?\\n");
+        int cutIndex = lines.length;
+
+        for (int i = 0; i < lines.length; i++) {
+            String trimmed = lines[i].trim().replaceAll("[#*\\s]+", "").replaceAll("[*:：]+$", "").trim();
+            // 检测"字数分配"、"字数建议"、"注意事项"等非正文标记
+            if (trimmed.contains("字数分配") || trimmed.contains("字数建议") ||
+                trimmed.contains("注意事项") || trimmed.contains("写作建议") ||
+                trimmed.matches(".*\\d+[字].*\\d+[字].*")) {
+                // 往回找到这个段落的标题行（可能是 --- 分隔线或 ** 加粗标题）
+                int start = i;
+                while (start > 0 && lines[start - 1].trim().matches("^[-—=]{3,}$|^$")) {
+                    start--;
+                }
+                cutIndex = start;
+                break;
             }
         }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < cutIndex; i++) {
+            sb.append(lines[i]).append("\n");
+        }
+        return sb.toString();
+    }
+
+    private boolean isChapterHeading(String line) {
+        String trimmed = line.trim();
+
+        // 列表项（以 * - + 数字. 开头）不是章节标题
+        if (trimmed.matches("^[*\\-+]\\s.*") || trimmed.matches("^\\d+\\.\\s.*")) {
+            return false;
+        }
+
+        // 去除所有markdown标记：#、*（加粗）、空格等，获取纯文本
+        String plain = trimmed
+                .replaceAll("^#+\\s*", "")   // 去掉 # ## ### 前缀
+                .replaceAll("^\\*+", "")     // 去掉开头的 **
+                .replaceAll("\\*+$", "")     // 去掉结尾的 **
+                .trim();
+
+        // 匹配章级标题
+        if (plain.matches("^第[一二三四五六七八九十百\\d]+章.*") ||
+            plain.matches("^摘\\s*要.*") ||
+            plain.matches("^Abstract.*") ||
+            plain.matches("^参考文献.*") ||
+            plain.matches("^致\\s*谢.*") ||
+            plain.matches("^引\\s*言.*") ||
+            plain.matches("^绪\\s*论.*") ||
+            plain.matches("^结\\s*论.*")) {
+            return true;
+        }
+
         return false;
     }
 
@@ -205,18 +289,19 @@ public class PaperService {
             2. 语言专业、准确，符合学术论文规范
             3. 论述有理有据，逻辑严密
             4. 只输出当前章节的内容，不要输出其他章节
+            5. 每个章节必须以该章的标题开头（如“## 摘要”、“## 第一章 绪论”、“## 参考文献”等），使用markdown二级标题格式
             """);
 
-        if (sectionIndex == 0 && section.toLowerCase().contains("摘要")) {
-            sb.append("5. 包含中文摘要和关键词，紧接着必须包含对应的英文摘要（Abstract）和英文关键词（Keywords），英文摘要是中文摘要的直译\n");
+        if (section.contains("摘要") || section.contains("Abstract") || section.contains("abstract")) {
+            sb.append("6. 包含中文摘要和关键词，紧接着必须包含对应的英文摘要（Abstract）和英文关键词（Keywords），英文摘要是中文摘要的直译\n");
         }
 
         if (section.contains("参考文献")) {
-            sb.append("5. 生成真实可查的参考文献，格式使用GB/T 7714标准，至少20条\n");
+            sb.append("6. 生成真实可查的参考文献，格式使用GB/T 7714标准，至少20条\n");
         }
 
         if (section.contains("致谢")) {
-            sb.append("5. 撰写完整的致谢内容（约300-500字），感谢导师的指导、学校老师的教诲、同学朋友的帮助、家人的支持等，语言真挚诚恳，符合学术论文致谢规范\n");
+            sb.append("6. 撰写完整的致谢内容（约300-500字），感谢导师的指导、学校老师的教诲、同学朋友的帮助、家人的支持等，语言真挚诚恳，符合学术论文致谢规范\n");
         }
 
         if (!languageHint.isBlank()) {
