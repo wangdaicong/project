@@ -53,27 +53,10 @@ public class PaperController {
 
         String title = request.getTitle() == null || request.getTitle().isBlank() ? "论文" : request.getTitle().trim();
 
-        byte[] bytes;
-        MediaType contentType;
-        String ext;
+        byte[] bytes = paperService.exportDocx(title, request.getContent());
+        MediaType contentType = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
 
-        if ("pdf".equalsIgnoreCase(format)) {
-            bytes = paperService.exportPdf(title, request.getContent());
-            contentType = MediaType.APPLICATION_PDF;
-            ext = "pdf";
-        } else if ("docx".equalsIgnoreCase(format) || "word".equalsIgnoreCase(format)) {
-            bytes = paperService.exportDocx(title, request.getContent());
-            contentType = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-            ext = "docx";
-        } else if ("txt".equalsIgnoreCase(format) || "text".equalsIgnoreCase(format)) {
-            bytes = paperService.exportTxt(request.getContent());
-            contentType = MediaType.TEXT_PLAIN;
-            ext = "txt";
-        } else {
-            return ResponseEntity.badRequest().build();
-        }
-
-        String fileName = title + "." + ext;
+        String fileName = title + ".docx";
         ContentDisposition disposition = ContentDisposition.attachment()
                 .filename(fileName, StandardCharsets.UTF_8)
                 .build();

@@ -558,6 +558,23 @@ public class PaperService {
             String content = sanitizeExportContent(title, markdownContent);
             buildDocxThesis(doc, title, content);
 
+            // Ensure Word updates all fields (PAGEREF) when the document is opened
+            try {
+                org.apache.poi.xwpf.usermodel.XWPFSettings settings = doc.getSettings();
+                // Use reflection to access getCTSettings() which may have protected access
+                java.lang.reflect.Method m = settings.getClass().getDeclaredMethod("getCTSettings");
+                m.setAccessible(true);
+                org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSettings ctSettings =
+                        (org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSettings) m.invoke(settings);
+                if (!ctSettings.isSetUpdateFields()) {
+                    ctSettings.addNewUpdateFields();
+                }
+                ctSettings.getUpdateFields().setVal(true);
+                System.out.println("[EXPORT] updateFields set to true successfully");
+            } catch (Exception ex) {
+                System.out.println("[EXPORT] Failed to set updateFields: " + ex.getClass().getName() + ": " + ex.getMessage());
+            }
+
             doc.write(out);
             return out.toByteArray();
         } catch (Exception e) {
@@ -627,89 +644,213 @@ public class PaperService {
         EN_ABSTRACT,
         TOC,
         REFERENCES,
+        ACKNOWLEDGEMENT,
         HEADING_1,
         HEADING_2,
         HEADING_3,
+        HEADING_4,
+        TABLE,
+        CODE_BLOCK,
         PARAGRAPH
     }
 
     private record Block(BlockType type, String text) {
     }
 
+    // Font size constants (in pt): 三号=16, 四号=14, 小四=12, 五号=10.5(use 10)
+    private static final int FONT_SAN_HAO = 16;   // 三号
+    private static final int FONT_SI_HAO = 14;    // 四号
+    private static final int FONT_XIAO_SI = 12;   // 小四号
+    private static final int FONT_WU_HAO = 10;    // 五号 (approx 10.5pt, use 10 for integer API)
+
     private void buildDocxThesis(XWPFDocument doc, String title, String markdownContent) {
         List<Block> blocks = parseMarkdownBlocks(markdownContent);
 
+        // Reset state for this export
+        bookmarkIdCounter = 0;
+        footerRelId = null;
+
+        // Create footer part (not document-level default — only referenced by sections that need page numbers)
+        createPageNumberFooter(doc);
+
+        // 论文标题：二号黑体加粗居中
         if (title != null && !title.isBlank()) {
             XWPFParagraph p = doc.createParagraph();
             p.setAlignment(ParagraphAlignment.CENTER);
+            p.setSpacingBefore(24 * 20);
+            p.setSpacingAfter(18 * 20);
             XWPFRun run = p.createRun();
             run.setBold(true);
             run.setFontFamily("黑体");
-            run.setFontSize(16);
+            run.setFontSize(22); // 二号
             run.setText(title.trim());
         }
 
+        // Debug: write all blocks to a file with UTF-8 encoding
+        try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.OutputStreamWriter(
+                new java.io.FileOutputStream("debug_blocks.txt"), java.nio.charset.StandardCharsets.UTF_8))) {
+            for (int di = 0; di < blocks.size(); di++) {
+                Block db = blocks.get(di);
+                pw.println("[BUILD] Block[" + di + "] type=" + db.type + " textLen=" + db.text.length() + " preview=" + db.text.substring(0, Math.min(120, db.text.length())).replace("\n", "\\n"));
+            }
+            pw.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // === Pass 1: Render abstracts first (in order) ===
+        // Track which block indices belong to abstract sections so Pass 3 can skip them
+        java.util.Set<Integer> abstractBlockIndices = new java.util.HashSet<>();
+        boolean zhTitleAdded = false;
+        boolean enTitleAdded = false;
+        boolean inZhSection = false;
+        boolean inEnSection = false;
+        // Collect all keywords across multiple abstract blocks
+        String[] zhKeywords = new String[0];
+        String[] enKeywords = new String[0];
+
+        for (int i = 0; i < blocks.size(); i++) {
+            Block b = blocks.get(i);
+            if (b.type == BlockType.ZH_ABSTRACT) {
+                inZhSection = true;
+                inEnSection = false;
+                abstractBlockIndices.add(i);
+                if (!zhTitleAdded) {
+                    // End title page section: no footer, no page number
+                    addDocxSectionBreak(doc, false, false);
+                    addDocxCenteredTitle(doc, "摘 要", "黑体", FONT_SAN_HAO, true, 24, 18);
+                    zhTitleAdded = true;
+                }
+                String body = removeKeywordLines(b.text, true);
+                if (!body.isEmpty()) {
+                    addDocxBodyParagraphs(doc, body, "宋体", FONT_XIAO_SI, true, 2, 0, 0, 20);
+                }
+                String[] kw = extractKeywords(b.text, true);
+                if (kw.length > 0) zhKeywords = kw;
+            } else if (b.type == BlockType.EN_ABSTRACT) {
+                // Before switching to English, output Chinese keywords if pending
+                if (inZhSection && zhKeywords.length > 0) {
+                    addDocxBlankLine(doc);
+                    addDocxKeywords(doc, "关键词：", zhKeywords, true);
+                    zhKeywords = new String[0]; // reset so we don't output again
+                }
+                inEnSection = true;
+                inZhSection = false;
+                abstractBlockIndices.add(i);
+                if (!enTitleAdded) {
+                    // End Chinese abstract section: with footer, reset page to 1 (ZH abstract starts from page 1)
+                    addDocxSectionBreak(doc, true, true);
+                    addDocxCenteredTitle(doc, "ABSTRACT", "Arial", FONT_SAN_HAO, true, 24, 18);
+                    enTitleAdded = true;
+                }
+                String body = removeKeywordLines(b.text, false);
+                if (!body.isEmpty()) {
+                    addDocxBodyParagraphs(doc, body, "Times New Roman", FONT_XIAO_SI, true, 2, 0, 0, 20);
+                }
+                String[] kw = extractKeywords(b.text, false);
+                if (kw.length > 0) enKeywords = kw;
+            } else if (b.type == BlockType.TABLE && (inZhSection || inEnSection)) {
+                // Table within abstract section — render it inline
+                abstractBlockIndices.add(i);
+                addDocxTable(doc, b.text);
+            } else {
+                inZhSection = false;
+                inEnSection = false;
+            }
+        }
+        // Output any remaining keywords
+        if (zhKeywords.length > 0) {
+            addDocxBlankLine(doc);
+            addDocxKeywords(doc, "关键词：", zhKeywords, true);
+        }
+        if (enKeywords.length > 0) {
+            addDocxBlankLine(doc);
+            addDocxKeywords(doc, "Key words: ", enKeywords, false);
+        }
+        if (enTitleAdded) {
+            // End English abstract section: with footer, NO reset (EN continues from ZH abstract page numbering)
+            addDocxSectionBreak(doc, true, false);
+        }
+
+        // === Pass 2: Always insert TOC after abstracts ===
+        addDocxCenteredTitle(doc, "目 录", "黑体", FONT_SAN_HAO, true, 24, 18);
+        addDocxManualToc(doc, blocks);
+        // End TOC section: with footer, reset page to 1 for main content
+        addDocxSectionBreak(doc, true, true);
+
+        // === Pass 3: Render all remaining content (skip abstracts and TOC) ===
         int h1 = 0;
         int h2 = 0;
         int h3 = 0;
 
         for (int i = 0; i < blocks.size(); i++) {
             Block b = blocks.get(i);
+
+            // Skip abstracts, TOC, and blocks already rendered in Pass 1
+            if (b.type == BlockType.ZH_ABSTRACT || b.type == BlockType.EN_ABSTRACT || b.type == BlockType.TOC
+                    || abstractBlockIndices.contains(i)) {
+                continue;
+            }
+
             switch (b.type) {
-                case ZH_ABSTRACT -> {
-                    addDocxCenteredTitle(doc, "摘 要", "黑体", 16, true, 24, 18);
-                    addDocxBodyParagraphs(doc, b.text, "宋体", 12, true, 2, 0, 0, 20);
-                    addDocxBlankLine(doc);
-                    String[] kw = extractKeywords(b.text, true);
-                    addDocxKeywords(doc, "关键词", kw, true);
-                    addDocxBlankLine(doc);
-                }
-                case EN_ABSTRACT -> {
-                    addDocxCenteredTitle(doc, "ABSTRACT", "Arial", 16, true, 24, 18);
-                    addDocxBodyParagraphs(doc, b.text, "Times New Roman", 12, true, 2, 0, 0, 20);
-                    addDocxBlankLine(doc);
-                    String[] kw = extractKeywords(b.text, false);
-                    addDocxKeywords(doc, "Key words", kw, false);
-                    addDocxBlankLine(doc);
-                }
-                case TOC -> {
-                    addDocxCenteredTitle(doc, "目 录", "黑体", 16, true, 24, 18);
-                    addDocxTocField(doc);
-                    addDocxPageBreak(doc);
-                }
                 case REFERENCES -> {
-                    addDocxCenteredTitle(doc, "参考文献", "黑体", 16, true, 24, 18);
+                    // "参考文献"三号黑体加粗居中（使用Heading1样式以显示在导航中）
+                    addDocxHeadingWithBookmark(doc, "参考文献", 1, "_toc_references");
+                    // 参考文献条目：五号宋体，顶格书写，单倍行距
                     addDocxReferenceItems(doc, b.text);
                 }
+                case ACKNOWLEDGEMENT -> {
+                    // "致 谢"三号黑体居中（使用Heading1样式以显示在导航中）
+                    addDocxHeadingWithBookmark(doc, "致 谢", 1, "_toc_acknowledgement");
+                    // 内容：小四号宋体，首行缩进2字符，行距固定值20磅
+                    addDocxBodyParagraphs(doc, b.text, "宋体", FONT_XIAO_SI, true, 2, 0, 0, 20);
+                }
                 case HEADING_1 -> {
+                    // 章标题：三号黑体加粗居中
                     h1++;
                     h2 = 0;
                     h3 = 0;
                     String headingText = normalizeHeadingNumbering(b.text, 1, h1, h2, h3);
-                    addDocxHeading(doc, headingText, 1);
+                    addDocxHeadingWithBookmark(doc, headingText, 1, "_toc_h" + h1);
                 }
                 case HEADING_2 -> {
-                    if (h1 == 0) {
-                        h1 = 1;
-                    }
+                    // 二级标题：四号黑体加黑，顶左书写
+                    if (h1 == 0) h1 = 1;
                     h2++;
                     h3 = 0;
                     String headingText = normalizeHeadingNumbering(b.text, 2, h1, h2, h3);
-                    addDocxHeading(doc, headingText, 2);
+                    addDocxHeadingWithBookmark(doc, headingText, 2, "_toc_h" + h1 + "_" + h2);
                 }
                 case HEADING_3 -> {
-                    if (h1 == 0) {
-                        h1 = 1;
-                    }
-                    if (h2 == 0) {
-                        h2 = 1;
-                    }
+                    // 三级标题：小四号黑体加黑，顶左书写
+                    if (h1 == 0) h1 = 1;
+                    if (h2 == 0) h2 = 1;
                     h3++;
                     String headingText = normalizeHeadingNumbering(b.text, 3, h1, h2, h3);
-                    addDocxHeading(doc, headingText, 3);
+                    addDocxHeadingWithBookmark(doc, headingText, 3, "_toc_h" + h1 + "_" + h2 + "_" + h3);
                 }
-                case PARAGRAPH -> addDocxBodyParagraphs(doc, b.text, "宋体", 12, true, 2, 0, 0, 20);
+                case HEADING_4 -> addDocxHeading(doc, b.text, 4);
+                case TABLE -> addDocxTable(doc, b.text);
+                case CODE_BLOCK -> addDocxCodeBlock(doc, b.text);
+                // 正文段落：小四号宋体，首行缩进2字符，行距固定值20磅
+                case PARAGRAPH -> addDocxBodyParagraphs(doc, b.text, "宋体", FONT_XIAO_SI, true, 2, 0, 0, 20);
             }
+        }
+
+        // Set document body sectPr for the last (main content) section: page numbering starts from 1
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBody ctBody = doc.getDocument().getBody();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr bodySectPr;
+        if (ctBody.isSetSectPr()) {
+            bodySectPr = ctBody.getSectPr();
+        } else {
+            bodySectPr = ctBody.addNewSectPr();
+        }
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageNumber bodyPgNum = bodySectPr.addNewPgNumType();
+        bodyPgNum.setStart(BigInteger.ONE);
+        if (footerRelId != null) {
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHdrFtrRef bodyFooterRef = bodySectPr.addNewFooterReference();
+            bodyFooterRef.setType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr.DEFAULT);
+            bodyFooterRef.setId(footerRelId);
         }
     }
 
@@ -740,9 +881,12 @@ public class PaperService {
             switch (b.type) {
                 case ZH_ABSTRACT -> {
                     addPdfCenteredTitle(document, baseFont, "摘 要", 16);
-                    addPdfBody(document, baseFont, b.text, 12);
+                    String zhBody = removeKeywordLines(b.text, true);
+                    addPdfBody(document, baseFont, zhBody, 12);
                     String[] kw = extractKeywords(b.text, true);
-                    addPdfKeywords(document, baseFont, "关键词", kw, true);
+                    if (kw.length > 0) {
+                        addPdfKeywords(document, baseFont, "关键词：", kw, true);
+                    }
                     addPdfBlankLine(document, baseFont);
                 }
                 case EN_ABSTRACT -> {
@@ -753,9 +897,12 @@ public class PaperService {
                         enFont = baseFont;
                     }
                     addPdfCenteredTitle(document, enFont, "ABSTRACT", 16);
-                    addPdfBody(document, enFont, b.text, 12);
+                    String enBody = removeKeywordLines(b.text, false);
+                    addPdfBody(document, enFont, enBody, 12);
                     String[] kw = extractKeywords(b.text, false);
-                    addPdfKeywords(document, enFont, "Key words", kw, false);
+                    if (kw.length > 0) {
+                        addPdfKeywords(document, enFont, "Key words: ", kw, false);
+                    }
                     addPdfBlankLine(document, enFont);
                 }
                 case TOC -> {
@@ -764,8 +911,12 @@ public class PaperService {
                     document.add(new com.itextpdf.layout.element.AreaBreak());
                 }
                 case REFERENCES -> {
-                    addPdfCenteredTitle(document, baseFont, "参考文献", 16);
+                    addPdfHeading(document, pdf, baseFont, "参考文献", 1, rootOutline);
                     addPdfReferences(document, baseFont, b.text);
+                }
+                case ACKNOWLEDGEMENT -> {
+                    addPdfHeading(document, pdf, baseFont, "致 谢", 1, rootOutline);
+                    addPdfBody(document, baseFont, b.text, 12);
                 }
                 case HEADING_1 -> {
                     h1++;
@@ -802,6 +953,9 @@ public class PaperService {
                     PdfOutline o = addPdfHeading(document, pdf, baseFont, headingText, 3, parent);
                     lastH3 = o;
                 }
+                case HEADING_4 -> addPdfHeading(document, pdf, baseFont, b.text, 4, lastH3 != null ? lastH3 : (lastH2 != null ? lastH2 : rootOutline));
+                case TABLE -> addPdfTable(document, baseFont, b.text);
+                case CODE_BLOCK -> addPdfCodeBlock(document, baseFont, b.text);
                 case PARAGRAPH -> addPdfBody(document, baseFont, b.text, 12);
             }
         }
@@ -813,11 +967,13 @@ public class PaperService {
         }
         String normalized = markdownContent.replace("\r\n", "\n").replace('\r', '\n');
         String[] lines = normalized.split("\n", -1);
-        List<Block> blocks = new java.util.ArrayList<>();
+        List<Block> rawBlocks = new java.util.ArrayList<>();
 
         String currentHeading = null;
         int currentLevel = 0;
         StringBuilder buf = new StringBuilder();
+        boolean inCodeBlock = false;
+        StringBuilder codeBuf = new StringBuilder();
 
         java.util.function.BiConsumer<Integer, String> flush = (level, heading) -> {
             String text = buf.toString().trim();
@@ -831,17 +987,50 @@ public class PaperService {
                     t = BlockType.TOC;
                 } else if (heading != null && heading.equals("参考文献")) {
                     t = BlockType.REFERENCES;
+                } else if (heading != null && (heading.equals("致谢") || heading.equals("致 谢"))) {
+                    t = BlockType.ACKNOWLEDGEMENT;
                 } else {
                     t = BlockType.PARAGRAPH;
                 }
-                blocks.add(new Block(t, text));
+                // debug logged to file
+                rawBlocks.add(new Block(t, text));
             }
             buf.setLength(0);
         };
 
         for (String line : lines) {
             String trimmed = line.trim();
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(#{1,3})\\s+(.+)$").matcher(trimmed);
+
+            // Handle fenced code blocks
+            if (trimmed.startsWith("```")) {
+                if (!inCodeBlock) {
+                    // flush current paragraph text before code block
+                    String priorText = buf.toString().trim();
+                    if (!priorText.isEmpty()) {
+                        flush.accept(currentLevel, currentHeading);
+                    }
+                    inCodeBlock = true;
+                    codeBuf.setLength(0);
+                    continue;
+                } else {
+                    // end of code block
+                    inCodeBlock = false;
+                    String code = codeBuf.toString();
+                    if (!code.trim().isEmpty()) {
+                        rawBlocks.add(new Block(BlockType.CODE_BLOCK, code));
+                    }
+                    codeBuf.setLength(0);
+                    continue;
+                }
+            }
+            if (inCodeBlock) {
+                codeBuf.append(line).append("\n");
+                continue;
+            }
+
+            // Handle headings (#{1,4}), strip invisible chars (BOM, zero-width spaces) before matching
+            String cleanedLine = trimmed.replaceAll("[\\uFEFF\\u200B\\u200C\\u200D\\u00A0]", "");
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^\\s*(#{1,4})\\s*(.+)$").matcher(cleanedLine);
             if (m.matches()) {
                 flush.accept(currentLevel, currentHeading);
                 String hashes = m.group(1);
@@ -849,18 +1038,237 @@ public class PaperService {
                 currentHeading = headingText;
                 currentLevel = hashes.length();
 
-                BlockType t = switch (currentLevel) {
-                    case 1 -> BlockType.HEADING_1;
-                    case 2 -> BlockType.HEADING_2;
-                    default -> BlockType.HEADING_3;
-                };
-                blocks.add(new Block(t, headingText));
+                // debug logged to file
+                // Skip HEADING block for special sections — they are handled by flush()
+                boolean isSpecial = headingText.equals("摘要") || headingText.equals("中文摘要") || headingText.equals("摘 要")
+                        || headingText.equalsIgnoreCase("ABSTRACT") || headingText.equals("英文摘要")
+                        || headingText.equals("目录") || headingText.equals("目 录")
+                        || headingText.equals("参考文献")
+                        || headingText.equals("致谢") || headingText.equals("致 谢");
+                // debug logged to file
+                if (!isSpecial) {
+                    // Detect chapter-level headings (第X章, 绪论, 结论) regardless of markdown level
+                    boolean isChapter = headingText.matches("^第[一二三四五六七八九十百\\d]+章.*")
+                            || headingText.matches("^绪\\s*论.*")
+                            || headingText.matches("^结\\s*论.*");
+                    BlockType t;
+                    if (isChapter) {
+                        t = BlockType.HEADING_1; // Always treat chapter headings as level 1
+                    } else if (currentLevel <= 2) {
+                        // ## non-chapter heading → treat as HEADING_1 (top-level)
+                        t = BlockType.HEADING_1;
+                    } else if (currentLevel == 3) {
+                        t = BlockType.HEADING_2; // ### → section
+                    } else {
+                        t = BlockType.HEADING_3; // #### → subsection
+                    }
+                    rawBlocks.add(new Block(t, headingText));
+                }
                 continue;
             }
             buf.append(line).append("\n");
         }
+        // flush unclosed code block if any
+        if (inCodeBlock && codeBuf.length() > 0) {
+            String code = codeBuf.toString();
+            if (!code.trim().isEmpty()) {
+                rawBlocks.add(new Block(BlockType.CODE_BLOCK, code));
+            }
+        }
         flush.accept(currentLevel, currentHeading);
+
+        // Second pass: split combined ZH_ABSTRACT that contains embedded English abstract
+        List<Block> splitBlocks = new java.util.ArrayList<>();
+        for (Block b : rawBlocks) {
+            if (b.type() == BlockType.ZH_ABSTRACT) {
+                splitAbstractBlock(b, splitBlocks);
+            } else {
+                splitBlocks.add(b);
+            }
+        }
+
+        // Third pass: extract tables and deduplicate special blocks
+        List<Block> blocks = new java.util.ArrayList<>();
+        boolean hasZhAbstract = false;
+        boolean hasEnAbstract = false;
+        boolean hasReferences = false;
+        for (Block b : splitBlocks) {
+            Block actual = b;
+            // Deduplicate: only keep the first ZH_ABSTRACT, EN_ABSTRACT, REFERENCES
+            if (b.type() == BlockType.ZH_ABSTRACT) {
+                if (hasZhAbstract) { actual = new Block(BlockType.PARAGRAPH, b.text()); }
+                else { hasZhAbstract = true; }
+            } else if (b.type() == BlockType.EN_ABSTRACT) {
+                if (hasEnAbstract) { actual = new Block(BlockType.PARAGRAPH, b.text()); }
+                else { hasEnAbstract = true; }
+            } else if (b.type() == BlockType.REFERENCES) {
+                if (hasReferences) { actual = new Block(BlockType.PARAGRAPH, b.text()); }
+                else { hasReferences = true; }
+            }
+            if (actual.type() == BlockType.PARAGRAPH || actual.type() == BlockType.ZH_ABSTRACT
+                    || actual.type() == BlockType.EN_ABSTRACT || actual.type() == BlockType.REFERENCES
+                    || actual.type() == BlockType.ACKNOWLEDGEMENT) {
+                extractTablesFromParagraph(actual, blocks);
+            } else {
+                blocks.add(actual);
+            }
+        }
         return blocks;
+    }
+
+    /**
+     * Split a ZH_ABSTRACT block that may contain an embedded English abstract.
+     * The AI often generates both Chinese and English abstracts under a single "## 摘要" heading.
+     * We detect the English abstract boundary by looking for lines starting with "Abstract" or
+     * a line that is predominantly English text after the Chinese keywords line.
+     */
+    private void splitAbstractBlock(Block zhBlock, List<Block> out) {
+        String text = zhBlock.text();
+        String[] lines = text.split("\n", -1);
+
+        // Strategy: find the split point where English abstract begins
+        // The AI generates both Chinese and English abstracts under one "## 摘要" heading.
+        // Typical structure:
+        //   (Chinese abstract text...)
+        //   关键词：xxx
+        //   (optional table)
+        //   (Chinese contribution text...)
+        //   关键词：xxx  (possibly repeated)
+        //   (optional table)
+        //   Abstract (or directly English text)
+        //   (English abstract text...)
+        //   Keywords: xxx
+        int splitIdx = -1;
+
+        // Strategy 1: Look for standalone "Abstract" title line (most reliable)
+        for (int i = 0; i < lines.length; i++) {
+            String trimmed = lines[i].trim().replaceAll("\\*\\*", "").trim();
+            if (trimmed.equalsIgnoreCase("Abstract") || trimmed.equalsIgnoreCase("Abstract:")
+                    || trimmed.equalsIgnoreCase("ABSTRACT") || trimmed.equalsIgnoreCase("ABSTRACT:")) {
+                splitIdx = i;
+                break;
+            }
+        }
+
+        // Strategy 2: Look for "Keywords:" or "Key words:" line (English keywords marker)
+        if (splitIdx == -1) {
+            for (int i = 0; i < lines.length; i++) {
+                String trimmed = lines[i].trim();
+                if (trimmed.matches("(?i)^\\**\\s*Key\\s*words?\\s*[:：].*")) {
+                    // Found English keywords line — scan backwards to find where English text starts
+                    for (int j = i - 1; j >= 0; j--) {
+                        String prev = lines[j].trim();
+                        if (prev.isEmpty()) continue;
+                        // If this line is NOT English-dominant, the English abstract starts at j+1
+                        if (!isEnglishDominant(prev) && !prev.matches("(?i)^\\**\\s*Key\\s*words?\\s*[:：].*")) {
+                            splitIdx = j + 1;
+                            break;
+                        }
+                    }
+                    if (splitIdx == -1) {
+                        // All lines before Keywords are English — unlikely, but handle it
+                        splitIdx = 0;
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Strategy 3: After the LAST Chinese keywords line, find first English-dominant text
+        if (splitIdx == -1) {
+            int lastChineseKeywordsIdx = -1;
+            for (int i = 0; i < lines.length; i++) {
+                String trimmed = lines[i].trim();
+                if (trimmed.startsWith("关键词") || trimmed.startsWith("关键字")) {
+                    lastChineseKeywordsIdx = i;
+                }
+            }
+            if (lastChineseKeywordsIdx >= 0) {
+                for (int i = lastChineseKeywordsIdx + 1; i < lines.length; i++) {
+                    String trimmed = lines[i].trim();
+                    if (trimmed.isEmpty() || trimmed.startsWith("|")) continue; // skip blank lines and table rows
+                    if (trimmed.matches("^[A-Za-z].*") || isEnglishDominant(trimmed)) {
+                        splitIdx = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (splitIdx > 0) {
+            StringBuilder zhPart = new StringBuilder();
+            StringBuilder enPart = new StringBuilder();
+            for (int i = 0; i < lines.length; i++) {
+                if (i < splitIdx) {
+                    zhPart.append(lines[i]).append("\n");
+                } else {
+                    enPart.append(lines[i]).append("\n");
+                }
+            }
+            String zhText = zhPart.toString().trim();
+            String enText = enPart.toString().trim();
+            // Remove the "Abstract" title line from English text if present
+            enText = enText.replaceFirst("(?i)^\\*{0,2}\\s*Abstract\\s*:?\\s*\\*{0,2}\\s*\n?", "").trim();
+
+            if (!zhText.isEmpty()) {
+                out.add(new Block(BlockType.ZH_ABSTRACT, zhText));
+            }
+            if (!enText.isEmpty()) {
+                out.add(new Block(BlockType.EN_ABSTRACT, enText));
+            }
+        } else {
+            // No English abstract found, keep as-is
+            out.add(zhBlock);
+        }
+    }
+
+    private boolean isEnglishDominant(String text) {
+        if (text == null || text.isEmpty()) return false;
+        int ascii = 0;
+        int total = 0;
+        for (char c : text.toCharArray()) {
+            if (!Character.isWhitespace(c)) {
+                total++;
+                if (c < 128) ascii++;
+            }
+        }
+        return total > 0 && (double) ascii / total > 0.7;
+    }
+
+    private void extractTablesFromParagraph(Block block, List<Block> out) {
+        String[] lines = block.text().split("\n", -1);
+        StringBuilder paraBuf = new StringBuilder();
+        // For special block types (abstracts, references, acknowledgement), ALL text chunks keep the original type
+        boolean preserveType = block.type() == BlockType.ZH_ABSTRACT || block.type() == BlockType.EN_ABSTRACT
+                || block.type() == BlockType.REFERENCES || block.type() == BlockType.ACKNOWLEDGEMENT;
+        int i = 0;
+        while (i < lines.length) {
+            String line = lines[i];
+            // Detect table: current line has |, next line is separator
+            if (looksLikeTableRow(line) && i + 1 < lines.length && MD_TABLE_SEPARATOR.matcher(lines[i + 1]).matches()) {
+                // flush prior paragraph text
+                String prior = paraBuf.toString().trim();
+                if (!prior.isEmpty()) {
+                    out.add(new Block(block.type(), prior));
+                }
+                paraBuf.setLength(0);
+
+                // collect all table rows
+                StringBuilder tableBuf = new StringBuilder();
+                while (i < lines.length && (looksLikeTableRow(lines[i]) || MD_TABLE_SEPARATOR.matcher(lines[i]).matches())) {
+                    tableBuf.append(lines[i]).append("\n");
+                    i++;
+                }
+                out.add(new Block(BlockType.TABLE, tableBuf.toString().trim()));
+                continue;
+            }
+            paraBuf.append(line).append("\n");
+            i++;
+        }
+        String remaining = paraBuf.toString().trim();
+        if (!remaining.isEmpty()) {
+            out.add(new Block(block.type(), remaining));
+        }
     }
 
     private String normalizeHeadingNumbering(String heading, int level, int h1, int h2, int h3) {
@@ -868,11 +1276,19 @@ public class PaperService {
             return "";
         }
         String t = heading.trim();
-        if (t.matches("^\\d+(\\.\\d+){0,2}\\s+.*")) {
+        // Already has numeric numbering like "1.1 xxx" or "1.1xxx" (with or without space)
+        if (t.matches("^\\d+(\\.\\d+){0,2}\\s*\\S.*")) {
+            return t;
+        }
+        // Already has chapter-style numbering like "第一章", "第1章", "第二章 xxx"
+        if (t.matches("^第[一二三四五六七八九十百\\d]+章.*")) {
+            return t;
+        }
+        // Don't add numbering for level-1 headings (chapter titles)
+        if (level == 1) {
             return t;
         }
         return switch (level) {
-            case 1 -> h1 + " " + t;
             case 2 -> h1 + "." + h2 + " " + t;
             default -> h1 + "." + h2 + "." + h3 + " " + t;
         };
@@ -917,56 +1333,96 @@ public class PaperService {
     private void addDocxKeywords(XWPFDocument doc, String label, String[] keywords, boolean chineseComma) {
         XWPFParagraph p = doc.createParagraph();
         p.setAlignment(ParagraphAlignment.LEFT);
+        // 顶格书写，行距固定值20磅
         p.setSpacingBefore(0);
         p.setSpacingAfter(0);
         p.setSpacingBetween(20, LineSpacingRule.EXACT);
+        p.setFirstLineIndent(0); // 顶格
+
+        String fontFamily = chineseComma ? "宋体" : "Times New Roman";
+
+        // "关键词"/"Key words" 小四号加黑
         XWPFRun labelRun = p.createRun();
-        labelRun.setFontFamily(chineseComma ? "宋体" : "Times New Roman");
-        labelRun.setFontSize(12);
+        labelRun.setFontFamily(fontFamily);
+        labelRun.setFontSize(FONT_XIAO_SI);
         labelRun.setBold(true);
         labelRun.setText(label);
 
+        // 关键词内容 小四号不加黑
         XWPFRun kwRun = p.createRun();
-        kwRun.setFontFamily(chineseComma ? "宋体" : "Times New Roman");
-        kwRun.setFontSize(12);
+        kwRun.setFontFamily(fontFamily);
+        kwRun.setFontSize(FONT_XIAO_SI);
         kwRun.setBold(false);
 
         String joined = joinKeywords(keywords, chineseComma);
         if (!joined.isBlank()) {
-            kwRun.setText(" " + joined);
+            kwRun.setText(joined);
         }
     }
 
+    // Counter for unique bookmark IDs
+    private int bookmarkIdCounter = 0;
+
     private void addDocxHeading(XWPFDocument doc, String heading, int level) {
+        addDocxHeadingWithBookmark(doc, heading, level, null);
+    }
+
+    private void addDocxHeadingWithBookmark(XWPFDocument doc, String heading, int level, String bookmarkName) {
         XWPFParagraph p = doc.createParagraph();
-        if (level == 1) {
-            p.setStyle("Heading1");
-        } else if (level == 2) {
-            p.setStyle("Heading2");
-        } else {
-            p.setStyle("Heading3");
+
+        // For level 2/3/4, use built-in heading styles (left-aligned, no conflict)
+        // For level 1, do NOT use Heading1 style because it forces left alignment
+        if (level >= 2) {
+            String styleName = switch (level) {
+                case 2 -> "Heading2";
+                case 3 -> "Heading3";
+                default -> "Heading4";
+            };
+            p.setStyle(styleName);
         }
 
+        // Set outline level via XML for navigation pane hierarchy (all levels)
         CTP ctp = p.getCTP();
         if (!ctp.isSetPPr()) {
             ctp.addNewPPr();
         }
-        CTDecimalNumber outlineLvl = ctp.getPPr().isSetOutlineLvl() ? ctp.getPPr().getOutlineLvl() : ctp.getPPr().addNewOutlineLvl();
-        outlineLvl.setVal(BigInteger.valueOf(Math.max(0, Math.min(2, level - 1))));
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr pPr = ctp.getPPr();
+        CTDecimalNumber outlineLvl = pPr.isSetOutlineLvl() ? pPr.getOutlineLvl() : pPr.addNewOutlineLvl();
+        outlineLvl.setVal(BigInteger.valueOf(Math.max(0, Math.min(8, level - 1))));
 
+        // 章标题(level 1)：三号黑体加粗居中，段前24磅段后18磅
+        // 二级标题(level 2)：四号黑体加黑，顶左书写，段前段后适当
+        // 三级标题(level 3)：小四黑体加黑，顶左书写
         if (level == 1) {
             p.setAlignment(ParagraphAlignment.CENTER);
+            p.setSpacingBefore(24 * 20);
+            p.setSpacingAfter(18 * 20);
         } else {
             p.setAlignment(ParagraphAlignment.LEFT);
+            p.setSpacingBefore(12 * 20);
+            p.setSpacingAfter(6 * 20);
         }
-        p.setSpacingBefore(0);
-        p.setSpacingAfter(0);
+
+        // Add bookmark for TOC hyperlink if bookmarkName is provided
+        if (bookmarkName != null) {
+            int bmId = bookmarkIdCounter++;
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBookmark bmStart = ctp.addNewBookmarkStart();
+            bmStart.setId(BigInteger.valueOf(bmId));
+            bmStart.setName(bookmarkName);
+        }
 
         XWPFRun run = p.createRun();
         run.setBold(true);
         run.setFontFamily("黑体");
-        run.setFontSize(level == 1 ? 16 : (level == 2 ? 14 : 12));
+        // 章标题三号(16pt)，二级标题四号(14pt)，三级标题小四(12pt)
+        run.setFontSize(level == 1 ? FONT_SAN_HAO : (level == 2 ? FONT_SI_HAO : FONT_XIAO_SI));
         run.setText(heading);
+
+        // Close bookmark
+        if (bookmarkName != null) {
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTMarkupRange bmEnd = ctp.addNewBookmarkEnd();
+            bmEnd.setId(BigInteger.valueOf(bookmarkIdCounter - 1));
+        }
     }
 
     private void addDocxReferenceItems(XWPFDocument doc, String markdown) {
@@ -979,22 +1435,115 @@ public class PaperService {
             }
             XWPFParagraph p = doc.createParagraph();
             p.setAlignment(ParagraphAlignment.LEFT);
+            // 五号宋体，顶格书写，单倍行距
             p.setSpacingBetween(1.0, LineSpacingRule.AUTO);
             p.setSpacingBefore(0);
             p.setSpacingAfter(0);
             XWPFRun run = p.createRun();
             run.setFontFamily("宋体");
-            run.setFontSize(10);
+            run.setFontSize(FONT_WU_HAO);
             run.setText(t);
         }
     }
 
-    private void addDocxTocField(XWPFDocument doc) {
-        XWPFParagraph p = doc.createParagraph();
-        p.setAlignment(ParagraphAlignment.LEFT);
-        CTP ctp = p.getCTP();
-        CTSimpleField toc = ctp.addNewFldSimple();
-        toc.setInstr("TOC \\o \"1-3\" \\h \\z \\u");
+    private void addDocxManualToc(XWPFDocument doc, List<Block> blocks) {
+        // Use a native Word TOC field that auto-generates page numbers.
+        // The TOC field uses outline levels 1-3 which are set on headings via addDocxHeadingWithBookmark.
+        // When the document is opened, Word/WPS will populate the TOC with correct page numbers.
+
+        XWPFParagraph tocPara = doc.createParagraph();
+        CTP ctp = tocPara.getCTP();
+
+        // TOC field BEGIN (dirty=true forces recalculation on open)
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR beginR = ctp.addNewR();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFldChar beginFld = beginR.addNewFldChar();
+        beginFld.setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.BEGIN);
+        beginFld.setDirty(true);
+
+        // TOC field instruction: uses outline levels 1-3, adds hyperlinks, uses applied paragraph outline level
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR instrR = ctp.addNewR();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText instrText = instrR.addNewInstrText();
+        instrText.setStringValue(" TOC " + "\\o \"1-3\" \\h \\z " + "\\" + "u ");
+        instrText.setSpace(org.apache.xmlbeans.impl.xb.xmlschema.SpaceAttribute.Space.PRESERVE);
+
+        // TOC field SEPARATE
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR sepR = ctp.addNewR();
+        sepR.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.SEPARATE);
+
+        // TOC field END — will be placed after the static placeholder content
+        // First, add static placeholder content between SEPARATE and END so the TOC is not empty
+        // This placeholder will be replaced by Word when the field is updated
+
+        // Add placeholder text entries for each heading (so the TOC is not blank before update)
+        int th1 = 0, th2 = 0, th3 = 0;
+        for (Block b : blocks) {
+            String tocTitle = null;
+            int level = 0;
+            switch (b.type) {
+                case HEADING_1 -> { th1++; th2 = 0; th3 = 0; tocTitle = normalizeHeadingNumbering(b.text, 1, th1, th2, th3); level = 1; }
+                case HEADING_2 -> { if (th1 == 0) th1 = 1; th2++; th3 = 0; tocTitle = normalizeHeadingNumbering(b.text, 2, th1, th2, th3); level = 2; }
+                case HEADING_3 -> { if (th1 == 0) th1 = 1; if (th2 == 0) th2 = 1; th3++; tocTitle = normalizeHeadingNumbering(b.text, 3, th1, th2, th3); level = 3; }
+                case REFERENCES -> { tocTitle = "参考文献"; level = 1; }
+                case ACKNOWLEDGEMENT -> { tocTitle = "致 谢"; level = 1; }
+                default -> {}
+            }
+            if (tocTitle == null) continue;
+
+            // Each TOC entry is a separate paragraph with TOCn style
+            XWPFParagraph entryPara = doc.createParagraph();
+            entryPara.setStyle("TOC" + level); // Word built-in TOC styles: TOC1, TOC2, TOC3
+
+            // Set font and indentation
+            int fontSizeHalfPt;
+            int indentTwips = 0;
+            if (level == 1) {
+                fontSizeHalfPt = 28; // 14pt
+            } else if (level == 2) {
+                fontSizeHalfPt = 24; // 12pt
+                indentTwips = 240;
+            } else {
+                fontSizeHalfPt = 20; // 10pt
+                indentTwips = 480;
+            }
+            if (indentTwips > 0) {
+                entryPara.setIndentationLeft(indentTwips);
+            }
+            entryPara.setSpacingBetween(1.0, LineSpacingRule.AUTO);
+            entryPara.setSpacingBefore(0);
+            entryPara.setSpacingAfter(0);
+
+            // Add right tab stop with dot leader
+            CTP entryCtp = entryPara.getCTP();
+            if (!entryCtp.isSetPPr()) entryCtp.addNewPPr();
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr entryPPr = entryCtp.getPPr();
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTabs tabs = entryPPr.addNewTabs();
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTabStop tab = tabs.addNewTab();
+            tab.setVal(org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabJc.RIGHT);
+            tab.setLeader(org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabTlc.DOT);
+            tab.setPos(BigInteger.valueOf(8200 - indentTwips));
+
+            // Title text
+            XWPFRun titleRun = entryPara.createRun();
+            titleRun.setFontFamily("宋体");
+            titleRun.setFontSize(fontSizeHalfPt / 2);
+            titleRun.setText(tocTitle);
+
+            // Tab (dot leader)
+            XWPFRun tabRun = entryPara.createRun();
+            tabRun.addTab();
+
+            // Placeholder page number (will be replaced when TOC field is updated)
+            XWPFRun pageRun = entryPara.createRun();
+            pageRun.setFontFamily("宋体");
+            pageRun.setFontSize(fontSizeHalfPt / 2);
+            pageRun.setText("");
+        }
+
+        // Close the TOC field on a final paragraph
+        XWPFParagraph endPara = doc.createParagraph();
+        CTP endCtp = endPara.getCTP();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR endR = endCtp.addNewR();
+        endR.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.END);
     }
 
     private void addDocxBlankLine(XWPFDocument doc) {
@@ -1006,6 +1555,178 @@ public class PaperService {
     private void addDocxPageBreak(XWPFDocument doc) {
         XWPFParagraph p = doc.createParagraph();
         p.setPageBreak(true);
+    }
+
+    // Footer relation IDs — created once, referenced by sections that need page numbers
+    private String footerRelId = null;
+
+    /**
+     * Create a footer part containing a centered PAGE field.
+     * Does NOT set it as the document default — sections must explicitly reference it.
+     */
+    private void createPageNumberFooter(XWPFDocument doc) {
+        try {
+            // Create footer with PAGE field
+            org.apache.poi.xwpf.usermodel.XWPFFooter footer =
+                    doc.createFooter(org.apache.poi.wp.usermodel.HeaderFooterType.DEFAULT);
+            XWPFParagraph p = footer.createParagraph();
+            p.setAlignment(ParagraphAlignment.CENTER);
+
+            CTP ctp = p.getCTP();
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r1 = ctp.addNewR();
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr rPr = r1.addNewRPr();
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure sz = rPr.addNewSz();
+            sz.setVal(BigInteger.valueOf(20)); // 10pt
+            r1.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.BEGIN);
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r2 = ctp.addNewR();
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText instrText = r2.addNewInstrText();
+            instrText.setStringValue(" PAGE ");
+            instrText.setSpace(org.apache.xmlbeans.impl.xb.xmlschema.SpaceAttribute.Space.PRESERVE);
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r3 = ctp.addNewR();
+            r3.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.END);
+
+            footerRelId = doc.getRelationId(footer);
+
+            // IMPORTANT: doc.createFooter(DEFAULT) auto-adds a footer reference to the document
+            // body sectPr, which makes it apply to ALL sections including the title page.
+            // Remove it so only sections that explicitly reference it will show page numbers.
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBody ctBody = doc.getDocument().getBody();
+            if (ctBody.isSetSectPr()) {
+                org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr bodySectPr = ctBody.getSectPr();
+                // Remove all footer references from body sectPr
+                for (int i = bodySectPr.sizeOfFooterReferenceArray() - 1; i >= 0; i--) {
+                    bodySectPr.removeFooterReference(i);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Add a section break. The sectPr is attached to the LAST existing paragraph in the document
+     * (not a new empty paragraph), to avoid creating extra blank space or duplicate footers.
+     *
+     * @param showPageNumber whether this section should display page numbers in footer
+     * @param resetPageNumber whether to reset page numbering to 1 for this section
+     */
+    private void addDocxSectionBreak(XWPFDocument doc, boolean showPageNumber, boolean resetPageNumber) {
+        java.util.List<XWPFParagraph> paragraphs = doc.getParagraphs();
+        XWPFParagraph lastPara;
+        if (paragraphs.isEmpty()) {
+            lastPara = doc.createParagraph();
+        } else {
+            lastPara = paragraphs.get(paragraphs.size() - 1);
+        }
+        CTP ctp = lastPara.getCTP();
+        if (!ctp.isSetPPr()) ctp.addNewPPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr sectPr = ctp.getPPr().addNewSectPr();
+        sectPr.addNewType().setVal(org.openxmlformats.schemas.wordprocessingml.x2006.main.STSectionMark.NEXT_PAGE);
+
+        if (resetPageNumber) {
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageNumber pgNum = sectPr.addNewPgNumType();
+            pgNum.setStart(BigInteger.ONE);
+        }
+
+        if (showPageNumber && footerRelId != null) {
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHdrFtrRef footerRef = sectPr.addNewFooterReference();
+            footerRef.setType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr.DEFAULT);
+            footerRef.setId(footerRelId);
+        }
+    }
+
+    private void addDocxTable(XWPFDocument doc, String tableMarkdown) {
+        String[] lines = tableMarkdown.split("\n", -1);
+        java.util.List<String[]> dataRows = new java.util.ArrayList<>();
+        for (String line : lines) {
+            String t = line.trim();
+            if (t.isEmpty()) continue;
+            if (MD_TABLE_SEPARATOR.matcher(t).matches()) continue;
+            dataRows.add(splitTableRow(t));
+        }
+        if (dataRows.isEmpty()) return;
+
+        int cols = 0;
+        for (String[] row : dataRows) {
+            cols = Math.max(cols, row.length);
+        }
+        if (cols == 0) return;
+
+        org.apache.poi.xwpf.usermodel.XWPFTable table = doc.createTable(dataRows.size(), cols);
+        table.setWidth("100%");
+
+        // Set table borders
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblPr tblPr = table.getCTTbl().getTblPr();
+        if (tblPr == null) tblPr = table.getCTTbl().addNewTblPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblBorders borders = tblPr.isSetTblBorders() ? tblPr.getTblBorders() : tblPr.addNewTblBorders();
+        for (var border : new org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBorder[]{
+                borders.isSetTop() ? borders.getTop() : borders.addNewTop(),
+                borders.isSetBottom() ? borders.getBottom() : borders.addNewBottom(),
+                borders.isSetLeft() ? borders.getLeft() : borders.addNewLeft(),
+                borders.isSetRight() ? borders.getRight() : borders.addNewRight(),
+                borders.isSetInsideH() ? borders.getInsideH() : borders.addNewInsideH(),
+                borders.isSetInsideV() ? borders.getInsideV() : borders.addNewInsideV()
+        }) {
+            border.setVal(org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder.SINGLE);
+            border.setSz(BigInteger.valueOf(4));
+            border.setColor("000000");
+        }
+
+        for (int r = 0; r < dataRows.size(); r++) {
+            String[] cells = dataRows.get(r);
+            org.apache.poi.xwpf.usermodel.XWPFTableRow row = table.getRow(r);
+            for (int c = 0; c < cols; c++) {
+                org.apache.poi.xwpf.usermodel.XWPFTableCell cell = row.getCell(c);
+                if (cell == null) cell = row.addNewTableCell();
+                String cellText = c < cells.length ? cells[c].trim() : "";
+                // Clear default empty paragraph
+                if (cell.getParagraphs().size() > 0) {
+                    XWPFParagraph cp = cell.getParagraphs().get(0);
+                    cp.setAlignment(ParagraphAlignment.CENTER);
+                    cp.setSpacingBefore(0);
+                    cp.setSpacingAfter(0);
+                    XWPFRun run = cp.createRun();
+                    run.setFontFamily("宋体");
+                    run.setFontSize(10);
+                    if (r == 0) run.setBold(true);
+                    run.setText(cellText);
+                } else {
+                    cell.setText(cellText);
+                }
+            }
+        }
+        addDocxBlankLine(doc);
+    }
+
+    private void addDocxCodeBlock(XWPFDocument doc, String code) {
+        String[] lines = code.split("\n", -1);
+        // Remove trailing empty lines
+        int end = lines.length;
+        while (end > 0 && lines[end - 1].trim().isEmpty()) end--;
+
+        for (int i = 0; i < end; i++) {
+            XWPFParagraph p = doc.createParagraph();
+            p.setAlignment(ParagraphAlignment.LEFT);
+            p.setSpacingBefore(0);
+            p.setSpacingAfter(0);
+            p.setSpacingBetween(14, LineSpacingRule.EXACT);
+
+            // Set gray background shading
+            CTP ctp = p.getCTP();
+            if (!ctp.isSetPPr()) ctp.addNewPPr();
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTShd shd;
+            if (ctp.getPPr().isSetShd()) {
+                shd = ctp.getPPr().getShd();
+            } else {
+                shd = ctp.getPPr().addNewShd();
+            }
+            shd.setVal(org.openxmlformats.schemas.wordprocessingml.x2006.main.STShd.CLEAR);
+            shd.setFill("F0F0F0");
+
+            XWPFRun run = p.createRun();
+            run.setFontFamily("Consolas");
+            run.setFontSize(9);
+            run.setText(lines[i].isEmpty() ? " " : lines[i]);
+        }
+        addDocxBlankLine(doc);
     }
 
     private void addPdfCenteredTitle(Document document, PdfFont font, String text, int fontSize) {
@@ -1092,6 +1813,70 @@ public class PaperService {
         }
     }
 
+    private void addPdfTable(Document document, PdfFont font, String tableMarkdown) {
+        String[] lines = tableMarkdown.split("\n", -1);
+        java.util.List<String[]> dataRows = new java.util.ArrayList<>();
+        for (String line : lines) {
+            String t = line.trim();
+            if (t.isEmpty()) continue;
+            if (MD_TABLE_SEPARATOR.matcher(t).matches()) continue;
+            dataRows.add(splitTableRow(t));
+        }
+        if (dataRows.isEmpty()) return;
+
+        int cols = 0;
+        for (String[] row : dataRows) {
+            cols = Math.max(cols, row.length);
+        }
+        if (cols == 0) return;
+
+        float[] colWidths = new float[cols];
+        java.util.Arrays.fill(colWidths, 1f);
+        com.itextpdf.layout.element.Table table = new com.itextpdf.layout.element.Table(com.itextpdf.layout.properties.UnitValue.createPercentArray(colWidths))
+                .useAllAvailableWidth()
+                .setMarginTop(6)
+                .setMarginBottom(6);
+
+        for (int r = 0; r < dataRows.size(); r++) {
+            String[] cells = dataRows.get(r);
+            for (int c = 0; c < cols; c++) {
+                String cellText = c < cells.length ? cells[c].trim() : "";
+                com.itextpdf.layout.element.Cell cell = new com.itextpdf.layout.element.Cell()
+                        .add(new Paragraph(cellText).setFont(font).setFontSize(10).setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER))
+                        .setPadding(4);
+                if (r == 0) {
+                    cell.setBold();
+                    cell.setBackgroundColor(new com.itextpdf.kernel.colors.DeviceRgb(240, 240, 240));
+                }
+                table.addCell(cell);
+            }
+        }
+        document.add(table);
+    }
+
+    private void addPdfCodeBlock(Document document, PdfFont font, String code) {
+        String[] lines = code.split("\n", -1);
+        int end = lines.length;
+        while (end > 0 && lines[end - 1].trim().isEmpty()) end--;
+
+        com.itextpdf.layout.element.Div codeDiv = new com.itextpdf.layout.element.Div()
+                .setBackgroundColor(new com.itextpdf.kernel.colors.DeviceRgb(240, 240, 240))
+                .setPadding(8)
+                .setMarginTop(6)
+                .setMarginBottom(6);
+
+        for (int i = 0; i < end; i++) {
+            Paragraph p = new Paragraph(lines[i].isEmpty() ? " " : lines[i])
+                    .setFont(font)
+                    .setFontSize(9)
+                    .setFixedLeading(14)
+                    .setMarginTop(0)
+                    .setMarginBottom(0);
+            codeDiv.add(p);
+        }
+        document.add(codeDiv);
+    }
+
     private String[] extractKeywords(String markdown, boolean chinese) {
         if (markdown == null) {
             return new String[0];
@@ -1107,7 +1892,7 @@ public class PaperService {
                 }
             } else {
                 if (t.toLowerCase().startsWith("key words") || t.toLowerCase().startsWith("keywords")) {
-                    String rest = t.replaceFirst("(?i)key\\s*words", "").replaceFirst("(?i)keywords", "");
+                    String rest = t.replaceFirst("(?i)key\\s*words", "");
                     rest = rest.replaceFirst("^[:：\\s]+", "");
                     return splitKeywords(rest, false);
                 }
@@ -1124,7 +1909,8 @@ public class PaperService {
         if (cleaned.isBlank()) {
             return new String[0];
         }
-        String[] parts = cleaned.split(chineseComma ? "[，,]+" : "[,，]+", -1);
+        // Support comma and semicolon delimiters (both Chinese and English)
+        String[] parts = cleaned.split("[，,；;]+", -1);
         java.util.List<String> out = new java.util.ArrayList<>();
         for (String p : parts) {
             String t = p.trim();
@@ -1144,12 +1930,25 @@ public class PaperService {
         return joined.replaceAll("[，,\\s]+$", "");
     }
 
+    private String removeKeywordLines(String text, boolean chinese) {
+        if (text == null || text.isBlank()) return "";
+        String[] lines = text.replace("\r\n", "\n").replace('\r', '\n').split("\n");
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines) {
+            String t = line.trim();
+            if (chinese && (t.startsWith("关键词") || t.startsWith("关键字"))) continue;
+            if (!chinese && (t.toLowerCase().startsWith("key words") || t.toLowerCase().startsWith("keywords"))) continue;
+            sb.append(line).append("\n");
+        }
+        return sb.toString().trim();
+    }
+
     private static final Pattern MD_FENCED_CODE_BLOCK = Pattern.compile("(?s)```[^\n]*\n(.*?)\n```", Pattern.MULTILINE);
     private static final Pattern MD_INLINE_CODE = Pattern.compile("`([^`]*)`");
     private static final Pattern MD_IMAGE = Pattern.compile("!\\[([^\\]]*)\\]\\([^\\)]*\\)");
     private static final Pattern MD_LINK = Pattern.compile("\\[([^\\]]+)\\]\\(([^\\)]+)\\)");
     private static final Pattern MD_BOLD_ITALIC = Pattern.compile("(\\*\\*|__|\\*|_)");
-    private static final Pattern MD_HEADING = Pattern.compile("(?m)^\\s{0,3}#{1,6}\\s+");
+    private static final Pattern MD_HEADING = Pattern.compile("(?m)^\\s{0,3}#{1,6}\\s*");
     private static final Pattern MD_BLOCKQUOTE = Pattern.compile("(?m)^\\s{0,3}>\\s?");
     private static final Pattern MD_LIST_PREFIX = Pattern.compile("(?m)^\\s{0,3}([\\*\\-\\+]\\s+|\\d+\\.\\s+)");
     private static final Pattern MD_HR = Pattern.compile("(?m)^\\s{0,3}(-{3,}|\\*{3,}|_{3,})\\s*$");
@@ -1257,9 +2056,21 @@ public class PaperService {
         }
         String[] raw = t.split("\\|", -1);
         for (int i = 0; i < raw.length; i++) {
-            raw[i] = raw[i].trim();
+            raw[i] = stripInlineMarkdown(raw[i].trim());
         }
         return raw;
+    }
+
+    private String stripInlineMarkdown(String text) {
+        if (text == null || text.isEmpty()) return text;
+        // Remove bold/italic markers: **, __, *, _
+        String s = text.replaceAll("\\*\\*(.+?)\\*\\*", "$1");
+        s = s.replaceAll("__(.+?)__", "$1");
+        s = s.replaceAll("\\*(.+?)\\*", "$1");
+        s = s.replaceAll("_(.+?)_", "$1");
+        // Remove inline code backticks
+        s = s.replaceAll("`([^`]*)`", "$1");
+        return s.trim();
     }
 
     private String padRight(String s, int width) {

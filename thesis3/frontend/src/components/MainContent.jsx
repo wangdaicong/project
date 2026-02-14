@@ -1,9 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { 
   Sparkles, PenTool, Upload, FileText, Download, RefreshCw, 
   Image, Table, Code, Calculator, Trash2, Edit3,
-  ChevronDown, Check, Loader2
+  Check, Loader2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -54,46 +53,8 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const fileInputRef = useRef(null);
   const abortControllerRef = useRef(null);
-  const downloadButtonRef = useRef(null);
-  const downloadMenuRef = useRef(null);
-  const [downloadMenuPos, setDownloadMenuPos] = useState({ top: 0, left: 0 });
-
-  React.useEffect(() => {
-    if (!showDownloadMenu) return;
-
-    const updatePos = () => {
-      const btn = downloadButtonRef.current;
-      if (!btn) return;
-      const rect = btn.getBoundingClientRect();
-      const menuWidth = 176; // tailwind w-44 => 11rem
-      const padding = 8;
-      const left = Math.max(padding, rect.right - menuWidth);
-      const top = rect.bottom + padding;
-      setDownloadMenuPos({ top, left });
-    };
-
-    updatePos();
-
-    const onDocMouseDown = (e) => {
-      const btn = downloadButtonRef.current;
-      const menu = downloadMenuRef.current;
-      if (btn && btn.contains(e.target)) return;
-      if (menu && menu.contains(e.target)) return;
-      setShowDownloadMenu(false);
-    };
-
-    window.addEventListener('resize', updatePos);
-    window.addEventListener('scroll', updatePos, true);
-    document.addEventListener('mousedown', onDocMouseDown);
-    return () => {
-      window.removeEventListener('resize', updatePos);
-      window.removeEventListener('scroll', updatePos, true);
-      document.removeEventListener('mousedown', onDocMouseDown);
-    };
-  }, [showDownloadMenu]);
 
 
   const handleGenerateOutline = async () => {
@@ -267,7 +228,7 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
       .slice(0, 120);
   };
 
-  const handleDownload = async (format) => {
+  const handleDownload = async () => {
     if (!content) {
       toast.error('请先生成论文');
       return;
@@ -275,23 +236,10 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
 
     const safeTitle = sanitizeFilename(title || '论文');
 
-    if (format === 'md') {
-      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-      downloadBlob(blob, `${safeTitle}.md`);
-      toast.success('下载成功！');
-      return;
-    }
-
     try {
-      const resp = await paperApi.exportPaper(format, { title: safeTitle, content });
-      const ext = format === 'pdf' ? 'pdf' : (format === 'txt' ? 'txt' : 'docx');
-      const mime = format === 'pdf'
-        ? 'application/pdf'
-        : (format === 'txt'
-          ? 'text/plain;charset=utf-8'
-          : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      const blob = new Blob([resp.data], { type: mime });
-      downloadBlob(blob, `${safeTitle}.${ext}`);
+      const resp = await paperApi.exportPaper('docx', { title: safeTitle, content });
+      const blob = new Blob([resp.data], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      downloadBlob(blob, `${safeTitle}.docx`);
       toast.success('下载成功！');
     } catch (e) {
       try {
@@ -598,53 +546,15 @@ function MainContent({ user, paperType, onLoginRequired, initialTitle, onTitleUs
                   <RefreshCw className="w-4 h-4" />
                   <span className="whitespace-nowrap">重新生成</span>
                 </button>
-                <div className="relative">
-                  <button
-                    ref={downloadButtonRef}
-                    onClick={() => setShowDownloadMenu(v => !v)}
-                    className="btn-primary flex items-center space-x-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span className="whitespace-nowrap">下载论文</span>
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleDownload()}
+                  className="btn-primary flex items-center space-x-2"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="whitespace-nowrap">下载论文</span>
+                </button>
               </div>
             </div>
-
-            {showDownloadMenu && createPortal(
-              <div
-                ref={downloadMenuRef}
-                className="w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
-                style={{ position: 'fixed', top: downloadMenuPos.top, left: downloadMenuPos.left }}
-              >
-                <button
-                  onClick={() => { setShowDownloadMenu(false); handleDownload('docx'); }}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
-                >
-                  下载 Word (.docx)
-                </button>
-                <button
-                  onClick={() => { setShowDownloadMenu(false); handleDownload('pdf'); }}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
-                >
-                  下载 PDF (.pdf)
-                </button>
-                <button
-                  onClick={() => { setShowDownloadMenu(false); handleDownload('md'); }}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
-                >
-                  下载 Markdown (.md)
-                </button>
-                <button
-                  onClick={() => { setShowDownloadMenu(false); handleDownload('txt'); }}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
-                >
-                  下载 TXT (.txt)
-                </button>
-              </div>,
-              document.body
-            )}
 
             <div className="border border-gray-200 rounded-lg p-6 bg-white max-h-[600px] overflow-y-auto">
               <div className="markdown-content prose max-w-none">
