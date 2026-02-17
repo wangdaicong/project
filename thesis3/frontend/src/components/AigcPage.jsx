@@ -632,28 +632,34 @@ function AigcPage() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!outputText) return;
     if (!activeSession?.sessionId) {
       toast.error('请先完成一次处理');
       return;
     }
-    fetch(`/api/optimization/sessions/${activeSession.sessionId}/export`)
-      .then(r => {
-        if (!r.ok) throw new Error('导出失败');
-        return r.blob();
-      })
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `降AIGC结果_${activeSession.sessionId}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      })
-      .catch(() => toast.error('导出失败'));
+    try {
+      const resp = await fetch(`/api/optimization/sessions/${activeSession.sessionId}/export-docx`);
+      if (!resp.ok) throw new Error('导出失败');
+      const blob = await resp.blob();
+      const disposition = resp.headers.get('content-disposition');
+      let filename = '降AIGC结果.docx';
+      if (disposition) {
+        const match = disposition.match(/filename\*?=['"]?(?:UTF-8'')?([^;'"]+)/i);
+        if (match) filename = decodeURIComponent(match[1]);
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('导出成功！');
+    } catch {
+      toast.error('导出失败');
+    }
   };
 
   return (
@@ -988,21 +994,31 @@ function AigcPage() {
                     </button>
                   )}
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const sid = historySession?.sessionId;
                       if (!sid) return;
-                      fetch(`/api/optimization/sessions/${sid}/export`).then(async (r) => {
-                        if (!r.ok) throw new Error('下载失败');
-                        const blob = await r.blob();
+                      try {
+                        const resp = await fetch(`/api/optimization/sessions/${sid}/export-docx`);
+                        if (!resp.ok) throw new Error('导出失败');
+                        const blob = await resp.blob();
+                        const disposition = resp.headers.get('content-disposition');
+                        let filename = '降AIGC结果.docx';
+                        if (disposition) {
+                          const match = disposition.match(/filename\*?=['"]?(?:UTF-8'')?([^;'"]+)/i);
+                          if (match) filename = decodeURIComponent(match[1]);
+                        }
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = `optimization_${sid}.txt`;
+                        a.download = filename;
                         document.body.appendChild(a);
                         a.click();
                         a.remove();
                         URL.revokeObjectURL(url);
-                      }).catch(() => toast.error('导出失败'));
+                        toast.success('导出成功！');
+                      } catch {
+                        toast.error('导出失败');
+                      }
                     }}
                     className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
                     disabled={!historySession?.sessionId}

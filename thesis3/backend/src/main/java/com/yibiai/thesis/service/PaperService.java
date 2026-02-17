@@ -718,6 +718,7 @@ public class PaperService {
                 if (!zhTitleAdded) {
                     // End title page section: no footer, no page number
                     addDocxSectionBreak(doc, false, false);
+                    // 中文摘要："摘要"为三号黑体字居中加粗（摘要两字间空一格，段前24磅，段后18磅）
                     addDocxCenteredTitle(doc, "摘 要", "黑体", FONT_SAN_HAO, true, 24, 18);
                     zhTitleAdded = true;
                 }
@@ -740,6 +741,7 @@ public class PaperService {
                 if (!enTitleAdded) {
                     // End Chinese abstract section: with footer, reset page to 1 (ZH abstract starts from page 1)
                     addDocxSectionBreak(doc, true, true);
+                    // 英文摘要："ABSTRACT"为三号Arial居中加黑，段前24磅，段后18磅
                     addDocxCenteredTitle(doc, "ABSTRACT", "Arial", FONT_SAN_HAO, true, 24, 18);
                     enTitleAdded = true;
                 }
@@ -761,24 +763,38 @@ public class PaperService {
         // Output any remaining keywords
         if (zhKeywords.length > 0) {
             addDocxBlankLine(doc);
-            addDocxKeywords(doc, "关键词：", zhKeywords, true);
+            // 中文关键词："关键词"小四号宋体加黑，顶格书写，其后为关键词（小四号宋体），各关键词之间用中文逗号分开
+            addDocxKeywords(doc, "关键词", zhKeywords, true);
         }
         if (enKeywords.length > 0) {
             addDocxBlankLine(doc);
-            addDocxKeywords(doc, "Key words: ", enKeywords, false);
+            // 英文关键词："Key words"小四号Times New Roman加黑，顶格书写，关键词小四号Times New Roman
+            addDocxKeywords(doc, "Key words", enKeywords, false);
         }
         if (enTitleAdded) {
             // End English abstract section: with footer, NO reset (EN continues from ZH abstract page numbering)
             addDocxSectionBreak(doc, true, false);
         }
 
-        // === Pass 2: Always insert TOC after abstracts ===
-        addDocxCenteredTitle(doc, "目 录", "黑体", FONT_SAN_HAO, true, 24, 18);
-        addDocxManualToc(doc, blocks);
-        // End TOC section: with footer, reset page to 1 for main content
+        // === Pass 2: Add TOC section break to end abstracts and start TOC with page reset ===
         addDocxSectionBreak(doc, true, true);
+        addDocxCenteredTitle(doc, "目 录", "黑体", FONT_SAN_HAO, true, 24, 18);
+        
+        // === Pass 3: Collect TOC entries from blocks ===
+        java.util.List<TocEntryWithBookmark> tocEntries = collectTocEntries(blocks);
+        
+        // === Pass 4: Insert TOC entries ===
+        for (TocEntryWithBookmark entry : tocEntries) {
+            addDocxTocEntryWithPageRef(doc, entry.title, entry.level, entry.bookmarkName);
+        }
+        
+        // === Pass 5: Add section break after TOC to start main content with page reset ===
+        addDocxSectionBreak(doc, true, true);
+        
+        System.out.println("[DEBUG] TOC entries added: " + tocEntries.size());
+        System.out.println("[DEBUG] Total paragraphs after TOC: " + doc.getParagraphs().size());
 
-        // === Pass 3: Render all remaining content (skip abstracts and TOC) ===
+        // === Pass 6: Render all remaining content ===
         int h1 = 0;
         int h2 = 0;
         int h3 = 0;
@@ -835,22 +851,6 @@ public class PaperService {
                 // 正文段落：小四号宋体，首行缩进2字符，行距固定值20磅
                 case PARAGRAPH -> addDocxBodyParagraphs(doc, b.text, "宋体", FONT_XIAO_SI, true, 2, 0, 0, 20);
             }
-        }
-
-        // Set document body sectPr for the last (main content) section: page numbering starts from 1
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBody ctBody = doc.getDocument().getBody();
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr bodySectPr;
-        if (ctBody.isSetSectPr()) {
-            bodySectPr = ctBody.getSectPr();
-        } else {
-            bodySectPr = ctBody.addNewSectPr();
-        }
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageNumber bodyPgNum = bodySectPr.addNewPgNumType();
-        bodyPgNum.setStart(BigInteger.ONE);
-        if (footerRelId != null) {
-            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHdrFtrRef bodyFooterRef = bodySectPr.addNewFooterReference();
-            bodyFooterRef.setType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr.DEFAULT);
-            bodyFooterRef.setId(footerRelId);
         }
     }
 
@@ -1341,12 +1341,12 @@ public class PaperService {
 
         String fontFamily = chineseComma ? "宋体" : "Times New Roman";
 
-        // "关键词"/"Key words" 小四号加黑
+        // "关键词："/"Key words: " 小四号加黑
         XWPFRun labelRun = p.createRun();
         labelRun.setFontFamily(fontFamily);
         labelRun.setFontSize(FONT_XIAO_SI);
         labelRun.setBold(true);
-        labelRun.setText(label);
+        labelRun.setText(label + (chineseComma ? "：" : ": "));
 
         // 关键词内容 小四号不加黑
         XWPFRun kwRun = p.createRun();
@@ -1370,16 +1370,15 @@ public class PaperService {
     private void addDocxHeadingWithBookmark(XWPFDocument doc, String heading, int level, String bookmarkName) {
         XWPFParagraph p = doc.createParagraph();
 
-        // For level 2/3/4, use built-in heading styles (left-aligned, no conflict)
-        // For level 1, do NOT use Heading1 style because it forces left alignment
-        if (level >= 2) {
-            String styleName = switch (level) {
-                case 2 -> "Heading2";
-                case 3 -> "Heading3";
-                default -> "Heading4";
-            };
-            p.setStyle(styleName);
-        }
+        // Use built-in heading styles for TOC compatibility in both Word/WPS.
+        // We still override alignment/font/spacing below to keep thesis formatting.
+        String styleName = switch (level) {
+            case 1 -> "Heading1";
+            case 2 -> "Heading2";
+            case 3 -> "Heading3";
+            default -> "Heading4";
+        };
+        p.setStyle(styleName);
 
         // Set outline level via XML for navigation pane hierarchy (all levels)
         CTP ctp = p.getCTP();
@@ -1446,105 +1445,134 @@ public class PaperService {
         }
     }
 
-    private void addDocxManualToc(XWPFDocument doc, List<Block> blocks) {
-        // Use a native Word TOC field that auto-generates page numbers.
-        // The TOC field uses outline levels 1-3 which are set on headings via addDocxHeadingWithBookmark.
-        // When the document is opened, Word/WPS will populate the TOC with correct page numbers.
+    private java.util.List<TocEntryWithBookmark> collectTocEntries(List<Block> blocks) {
+        java.util.List<TocEntryWithBookmark> tocEntries = new java.util.ArrayList<>();
+        int h1 = 0;
+        int h2 = 0;
+        int h3 = 0;
 
-        XWPFParagraph tocPara = doc.createParagraph();
-        CTP ctp = tocPara.getCTP();
-
-        // TOC field BEGIN (dirty=true forces recalculation on open)
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR beginR = ctp.addNewR();
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFldChar beginFld = beginR.addNewFldChar();
-        beginFld.setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.BEGIN);
-        beginFld.setDirty(true);
-
-        // TOC field instruction: uses outline levels 1-3, adds hyperlinks, uses applied paragraph outline level
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR instrR = ctp.addNewR();
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText instrText = instrR.addNewInstrText();
-        instrText.setStringValue(" TOC " + "\\o \"1-3\" \\h \\z " + "\\" + "u ");
-        instrText.setSpace(org.apache.xmlbeans.impl.xb.xmlschema.SpaceAttribute.Space.PRESERVE);
-
-        // TOC field SEPARATE
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR sepR = ctp.addNewR();
-        sepR.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.SEPARATE);
-
-        // TOC field END — will be placed after the static placeholder content
-        // First, add static placeholder content between SEPARATE and END so the TOC is not empty
-        // This placeholder will be replaced by Word when the field is updated
-
-        // Add placeholder text entries for each heading (so the TOC is not blank before update)
-        int th1 = 0, th2 = 0, th3 = 0;
         for (Block b : blocks) {
-            String tocTitle = null;
+            String tocTitle_text = null;
             int level = 0;
+            String bookmarkName = null;
+
             switch (b.type) {
-                case HEADING_1 -> { th1++; th2 = 0; th3 = 0; tocTitle = normalizeHeadingNumbering(b.text, 1, th1, th2, th3); level = 1; }
-                case HEADING_2 -> { if (th1 == 0) th1 = 1; th2++; th3 = 0; tocTitle = normalizeHeadingNumbering(b.text, 2, th1, th2, th3); level = 2; }
-                case HEADING_3 -> { if (th1 == 0) th1 = 1; if (th2 == 0) th2 = 1; th3++; tocTitle = normalizeHeadingNumbering(b.text, 3, th1, th2, th3); level = 3; }
-                case REFERENCES -> { tocTitle = "参考文献"; level = 1; }
-                case ACKNOWLEDGEMENT -> { tocTitle = "致 谢"; level = 1; }
+                case HEADING_1 -> {
+                    h1++;
+                    h2 = 0;
+                    h3 = 0;
+                    tocTitle_text = normalizeHeadingNumbering(b.text, 1, h1, h2, h3);
+                    level = 1;
+                    bookmarkName = "_toc_h" + h1;
+                }
+                case HEADING_2 -> {
+                    if (h1 == 0) h1 = 1;
+                    h2++;
+                    h3 = 0;
+                    tocTitle_text = normalizeHeadingNumbering(b.text, 2, h1, h2, h3);
+                    level = 2;
+                    bookmarkName = "_toc_h" + h1 + "_" + h2;
+                }
+                case HEADING_3 -> {
+                    if (h1 == 0) h1 = 1;
+                    if (h2 == 0) h2 = 1;
+                    h3++;
+                    tocTitle_text = normalizeHeadingNumbering(b.text, 3, h1, h2, h3);
+                    level = 3;
+                    bookmarkName = "_toc_h" + h1 + "_" + h2 + "_" + h3;
+                }
+                case REFERENCES -> {
+                    tocTitle_text = "参考文献";
+                    level = 1;
+                    bookmarkName = "_toc_references";
+                }
+                case ACKNOWLEDGEMENT -> {
+                    tocTitle_text = "致 谢";
+                    level = 1;
+                    bookmarkName = "_toc_acknowledgement";
+                }
                 default -> {}
             }
-            if (tocTitle == null) continue;
 
-            // Each TOC entry is a separate paragraph with TOCn style
-            XWPFParagraph entryPara = doc.createParagraph();
-            entryPara.setStyle("TOC" + level); // Word built-in TOC styles: TOC1, TOC2, TOC3
-
-            // Set font and indentation
-            int fontSizeHalfPt;
-            int indentTwips = 0;
-            if (level == 1) {
-                fontSizeHalfPt = 28; // 14pt
-            } else if (level == 2) {
-                fontSizeHalfPt = 24; // 12pt
-                indentTwips = 240;
-            } else {
-                fontSizeHalfPt = 20; // 10pt
-                indentTwips = 480;
+            if (tocTitle_text != null && bookmarkName != null) {
+                tocEntries.add(new TocEntryWithBookmark(tocTitle_text, level, bookmarkName));
             }
-            if (indentTwips > 0) {
-                entryPara.setIndentationLeft(indentTwips);
-            }
-            entryPara.setSpacingBetween(1.0, LineSpacingRule.AUTO);
-            entryPara.setSpacingBefore(0);
-            entryPara.setSpacingAfter(0);
+        }
+        
+        return tocEntries;
+    }
 
-            // Add right tab stop with dot leader
-            CTP entryCtp = entryPara.getCTP();
-            if (!entryCtp.isSetPPr()) entryCtp.addNewPPr();
-            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr entryPPr = entryCtp.getPPr();
-            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTabs tabs = entryPPr.addNewTabs();
-            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTabStop tab = tabs.addNewTab();
-            tab.setVal(org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabJc.RIGHT);
-            tab.setLeader(org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabTlc.DOT);
-            tab.setPos(BigInteger.valueOf(8200 - indentTwips));
+    private static class TocEntryWithBookmark {
+        String title;
+        int level;
+        String bookmarkName;
+        TocEntryWithBookmark(String title, int level, String bookmarkName) {
+            this.title = title;
+            this.level = level;
+            this.bookmarkName = bookmarkName;
+        }
+    }
 
-            // Title text
-            XWPFRun titleRun = entryPara.createRun();
-            titleRun.setFontFamily("宋体");
-            titleRun.setFontSize(fontSizeHalfPt / 2);
-            titleRun.setText(tocTitle);
+    private void addDocxTocEntryWithPageRef(XWPFDocument doc, String title, int level, String bookmarkName) {
+        XWPFParagraph p = doc.createParagraph();
+        p.setStyle("TOC" + Math.max(1, Math.min(3, level)));
+        p.setSpacingBetween(1.0, LineSpacingRule.AUTO);
+        p.setSpacingBefore(0);
+        p.setSpacingAfter(0);
 
-            // Tab (dot leader)
-            XWPFRun tabRun = entryPara.createRun();
-            tabRun.addTab();
-
-            // Placeholder page number (will be replaced when TOC field is updated)
-            XWPFRun pageRun = entryPara.createRun();
-            pageRun.setFontFamily("宋体");
-            pageRun.setFontSize(fontSizeHalfPt / 2);
-            pageRun.setText("");
+        // 目录格式规范：章目录四号宋体，一级小节小四号宋体左缩进1字，二级小节五号宋体左缩进2字
+        int indentTwips = 0;
+        int fontSize = 14; // 四号 = 14pt
+        if (level == 2) {
+            indentTwips = 420; // 左缩进1个字符（约420 twips）
+            fontSize = 12; // 小四号 = 12pt
+        } else if (level >= 3) {
+            indentTwips = 840; // 左缩进2个字符（约840 twips）
+            fontSize = 10; // 五号 = 10.5pt，这里用10
+        }
+        if (indentTwips > 0) {
+            p.setIndentationLeft(indentTwips);
         }
 
-        // Close the TOC field on a final paragraph
-        XWPFParagraph endPara = doc.createParagraph();
-        CTP endCtp = endPara.getCTP();
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR endR = endCtp.addNewR();
-        endR.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.END);
+        CTP ctp = p.getCTP();
+        if (!ctp.isSetPPr()) ctp.addNewPPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr pPr = ctp.getPPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTabs tabs = pPr.isSetTabs() ? pPr.getTabs() : pPr.addNewTabs();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTabStop tab = tabs.addNewTab();
+        tab.setVal(org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabJc.RIGHT);
+        tab.setLeader(org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabTlc.DOT);
+        tab.setPos(BigInteger.valueOf(8200 - indentTwips));
+
+        XWPFRun titleRun = p.createRun();
+        titleRun.setFontFamily("宋体");
+        titleRun.setFontSize(fontSize);
+        titleRun.setText(title);
+
+        XWPFRun tabRun = p.createRun();
+        tabRun.addTab();
+
+        // Use PAGEREF field to reference the bookmark's actual page number
+        CTP ctpForPageRef = p.getCTP();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSimpleField pageRefField = ctpForPageRef.addNewFldSimple();
+        pageRefField.setInstr(" PAGEREF " + bookmarkName + " \\h ");
+        
+        // Add a run inside the field with placeholder text (will be updated by Word)
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR fieldRun = pageRefField.addNewR();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr fieldRPr = fieldRun.addNewRPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts fieldFonts = fieldRPr.addNewRFonts();
+        fieldFonts.setAscii("宋体");
+        fieldFonts.setEastAsia("宋体");
+        fieldFonts.setHAnsi("宋体");
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure fieldSz = fieldRPr.addNewSz();
+        fieldSz.setVal(BigInteger.valueOf(fontSize * 2));
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure fieldSzCs = fieldRPr.addNewSzCs();
+        fieldSzCs.setVal(BigInteger.valueOf(fontSize * 2));
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText fieldText = fieldRun.addNewT();
+        fieldText.setStringValue("1");
     }
+
+
+
 
     private void addDocxBlankLine(XWPFDocument doc) {
         XWPFParagraph p = doc.createParagraph();
@@ -1608,6 +1636,31 @@ public class PaperService {
      * @param showPageNumber whether this section should display page numbers in footer
      * @param resetPageNumber whether to reset page numbering to 1 for this section
      */
+    private void addDocxSectionBreakAtParagraph(XWPFDocument doc, int paragraphIndex) {
+        // Add section break at the specified paragraph index
+        java.util.List<XWPFParagraph> paragraphs = doc.getParagraphs();
+        if (paragraphIndex < 0 || paragraphIndex >= paragraphs.size()) {
+            return; // Invalid index
+        }
+        
+        XWPFParagraph para = paragraphs.get(paragraphIndex);
+        CTP ctp = para.getCTP();
+        if (!ctp.isSetPPr()) ctp.addNewPPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr sectPr = ctp.getPPr().addNewSectPr();
+        sectPr.addNewType().setVal(org.openxmlformats.schemas.wordprocessingml.x2006.main.STSectionMark.NEXT_PAGE);
+        
+        // Reset page number to 1 for main content
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageNumber pgNum = sectPr.addNewPgNumType();
+        pgNum.setStart(BigInteger.ONE);
+        
+        // Show page number with footer
+        if (footerRelId != null) {
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHdrFtrRef footerRef = sectPr.addNewFooterReference();
+            footerRef.setType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr.DEFAULT);
+            footerRef.setId(footerRelId);
+        }
+    }
+
     private void addDocxSectionBreak(XWPFDocument doc, boolean showPageNumber, boolean resetPageNumber) {
         java.util.List<XWPFParagraph> paragraphs = doc.getParagraphs();
         XWPFParagraph lastPara;

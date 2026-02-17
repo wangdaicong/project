@@ -22,6 +22,8 @@ public class OptimizationSession {
     @Column(columnDefinition = "CLOB")
     private String originalText;
 
+    private String originalFileName;
+
     private String processingMode;
 
     private String currentStage;

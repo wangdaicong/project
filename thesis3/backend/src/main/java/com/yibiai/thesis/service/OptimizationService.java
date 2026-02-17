@@ -971,15 +971,43 @@ public class OptimizationService {
             return segments;
         }
 
-        String[] paragraphs = text.split("\\n");
-        for (String para : paragraphs) {
-            if (para == null) {
+        String normalized = text.replace("\r\n", "\n").replace('\r', '\n');
+        String[] lines = normalized.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (line == null) {
                 continue;
             }
-            String p = para.trim();
+            String p = line.trim();
             if (p.isEmpty()) {
                 continue;
             }
+
+            // Preserve markdown table rows as-is.
+            if (isMarkdownTableRow(p)) {
+                segments.add(p);
+                continue;
+            }
+
+            // Preserve mermaid/graph block lines as-is until block ends.
+            if (isMermaidStart(p)) {
+                segments.add(p);
+                int j = i + 1;
+                while (j < lines.length) {
+                    String next = lines[j] == null ? "" : lines[j].trim();
+                    if (next.isEmpty()) {
+                        break;
+                    }
+                    if (!isMermaidContinuation(next)) {
+                        break;
+                    }
+                    segments.add(next);
+                    j++;
+                }
+                i = j - 1;
+                continue;
+            }
+
             if (countTextLength(p) <= maxChars) {
                 segments.add(p);
                 continue;
@@ -987,6 +1015,24 @@ public class OptimizationService {
             segments.addAll(splitLongParagraph(p, maxChars));
         }
         return segments;
+    }
+
+    private boolean isMarkdownTableRow(String line) {
+        return line.startsWith("|") && line.endsWith("|") && line.contains("|");
+    }
+
+    private boolean isMermaidStart(String line) {
+        return line.matches("^graph[A-Za-z]{2}.*");
+    }
+
+    private boolean isMermaidContinuation(String line) {
+        if (line.startsWith("graph")) {
+            return true;
+        }
+        if (line.contains("-->")) {
+            return true;
+        }
+        return line.matches("^[A-Za-z0-9_]+\\s*;?") || line.matches("^[A-Za-z].*[；;。]$");
     }
 
     private List<String> splitLongParagraph(String paragraph, int maxChars) {

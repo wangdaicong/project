@@ -1,8 +1,13 @@
 package com.yibiai.thesis.controller;
 
 import com.yibiai.thesis.dto.ApiResponse;
+import org.apache.poi.xwpf.usermodel.BodyElementType;
+import org.apache.poi.xwpf.usermodel.IBodyElement;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell;
+import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.hwpf.extractor.WordExtractor;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +32,47 @@ public class FileController {
         }
     }
 
+    private void appendTableAsMarkdown(StringBuilder sb, XWPFTable table) {
+        if (table == null || table.getRows() == null || table.getRows().isEmpty()) {
+            return;
+        }
+        int colCount = 0;
+        for (XWPFTableRow row : table.getRows()) {
+            if (row == null) continue;
+            int c = row.getTableCells() == null ? 0 : row.getTableCells().size();
+            colCount = Math.max(colCount, c);
+        }
+        if (colCount == 0) {
+            return;
+        }
+
+        boolean separatorAdded = false;
+        for (XWPFTableRow row : table.getRows()) {
+            if (row == null) continue;
+            sb.append("|");
+            for (int i = 0; i < colCount; i++) {
+                String cellText = "";
+                if (row.getTableCells() != null && i < row.getTableCells().size()) {
+                    XWPFTableCell cell = row.getCell(i);
+                    if (cell != null && cell.getText() != null) {
+                        cellText = cell.getText().replace("\r", " ").replace("\n", " ").trim();
+                    }
+                }
+                sb.append(cellText).append("|");
+            }
+            sb.append("\n");
+
+            if (!separatorAdded) {
+                sb.append("|");
+                for (int i = 0; i < colCount; i++) {
+                    sb.append("---|");
+                }
+                sb.append("\n");
+                separatorAdded = true;
+            }
+        }
+    }
+
     private String extractTextFromFile(MultipartFile file) throws Exception {
         String filename = file.getOriginalFilename();
         if (filename == null) {
@@ -37,8 +83,18 @@ public class FileController {
         if (lowerName.endsWith(".docx")) {
             try (XWPFDocument doc = new XWPFDocument(file.getInputStream())) {
                 StringBuilder sb = new StringBuilder();
-                for (XWPFParagraph para : doc.getParagraphs()) {
-                    sb.append(para.getText()).append("\n");
+                for (IBodyElement element : doc.getBodyElements()) {
+                    if (element.getElementType() == BodyElementType.PARAGRAPH) {
+                        XWPFParagraph para = (XWPFParagraph) element;
+                        String text = para.getText();
+                        if (text != null && !text.isBlank()) {
+                            sb.append(text.trim()).append("\n");
+                        }
+                    } else if (element.getElementType() == BodyElementType.TABLE) {
+                        XWPFTable table = (XWPFTable) element;
+                        appendTableAsMarkdown(sb, table);
+                        sb.append("\n");
+                    }
                 }
                 return sb.toString().trim();
             }

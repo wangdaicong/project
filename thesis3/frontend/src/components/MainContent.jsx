@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { 
   Sparkles, PenTool, Upload, FileText, Download, RefreshCw, 
   Image, Table, Code, Calculator, Trash2, Edit3,
-  Check, Loader2
+  ChevronDown, Check, Loader2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
