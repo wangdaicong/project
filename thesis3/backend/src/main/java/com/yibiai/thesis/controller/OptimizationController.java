@@ -379,14 +379,105 @@ public class OptimizationController {
 
         // --- Step 2: scan original text line by line, rebuild as markdown ---
         String[] lines = rawText.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1);
+        
+        // --- Pre-scan: detect outline block (chapter-title-list pattern) ---
+        // Strategy: Find a cluster of "第X章" lines that appear as an outline/TOC summary.
+        // These are typically a list of chapter titles without body paragraphs between them.
+        // Allow short intro lines (e.g., "本文的结构安排如下：") and empty lines in between.
+        java.util.Set<Integer> outlineSkipLines = new java.util.HashSet<>();
+        // Collect chapter titles from the outline block so we can re-insert them in the body
+        java.util.List<String> outlineChapterTitles = new java.util.ArrayList<>();
+        {
+            // Step 1: Find all "第X章" lines (with or without ## prefix)
+            java.util.List<Integer> chapterLines = new java.util.ArrayList<>();
+            for (int pi = 0; pi < lines.length; pi++) {
+                String pt = lines[pi].trim();
+                // Match "第X章..." or "## 第X章..." patterns
+                String stripped = pt.replaceFirst("^#{1,4}\\s+", "");
+                if (stripped.matches("^第[一二三四五六七八九十百\\d]+章[：:：].*") 
+                        || stripped.matches("^第[一二三四五六七八九十百\\d]+章$")) {
+                    chapterLines.add(pi);
+                }
+            }
+            
+            // Step 2: Find clusters of >=3 chapter lines that are close together
+            // (no long body paragraphs between them, only short text/empty/heading lines)
+            if (chapterLines.size() >= 3) {
+                int clusterStart = 0;
+                for (int ci = 0; ci < chapterLines.size(); ci++) {
+                    // Check if this chapter line is too far from previous (body text in between)
+                    if (ci > clusterStart) {
+                        int prevLine = chapterLines.get(ci - 1);
+                        int curLine = chapterLines.get(ci);
+                        boolean hasLongBody = false;
+                        for (int pi = prevLine + 1; pi < curLine; pi++) {
+                            String pt = lines[pi].trim();
+                            // If there's a long body paragraph between chapter titles, break the cluster
+                            if (pt.length() > 80 && !pt.matches("^#{1,4}\\s+.*") 
+                                    && !pt.matches("^第[一二三四五六七八九十百\\d]+章.*")
+                                    && !pt.matches("^\\d+\\.\\d+.*")) {
+                                hasLongBody = true;
+                                break;
+                            }
+                        }
+                        if (hasLongBody) {
+                            // Save previous cluster if big enough
+                            int clusterSize = ci - clusterStart;
+                            if (clusterSize >= 3) {
+                                markOutlineCluster(lines, chapterLines, clusterStart, ci - 1, outlineSkipLines, outlineChapterTitles);
+                            }
+                            clusterStart = ci;
+                        }
+                    }
+                }
+                // Check final cluster
+                int finalClusterSize = chapterLines.size() - clusterStart;
+                if (finalClusterSize >= 3) {
+                    markOutlineCluster(lines, chapterLines, clusterStart, chapterLines.size() - 1, outlineSkipLines, outlineChapterTitles);
+                }
+            }
+            
+            if (!outlineSkipLines.isEmpty()) {
+                System.out.println("[EXPORT-DOCX] Detected outline block: " + outlineSkipLines.size() + " lines skipped");
+            } else {
+                System.out.println("[EXPORT-DOCX] No outline block detected");
+            }
+        }
+        
         StringBuilder md = new StringBuilder();
         boolean inTocSection = false;
         String title = null;
         boolean skipFollowingRawTableRows = false;
+        // Track which chapter numbers have been output, to auto-insert missing ones from outline
+        java.util.Set<Integer> outputChapterNumbers = new java.util.HashSet<>();
+        // Build a map: chapter number -> outline title (e.g., 1 -> "第一章：绪论")
+        java.util.Map<Integer, String> outlineChapterMap = new java.util.LinkedHashMap<>();
+        String[] chineseNums = {"零","一","二","三","四","五","六","七","八","九","十"};
+        for (String oct : outlineChapterTitles) {
+            // Extract chapter number from title like "第一章：绪论" or "第1章：绪论"
+            java.util.regex.Matcher cm = java.util.regex.Pattern.compile(
+                    "^第([一二三四五六七八九十百\\d]+)章").matcher(oct);
+            if (cm.find()) {
+                String numStr = cm.group(1);
+                int num = -1;
+                try { num = Integer.parseInt(numStr); } catch (NumberFormatException e) {
+                    for (int ni = 0; ni < chineseNums.length; ni++) {
+                        if (chineseNums[ni].equals(numStr)) { num = ni; break; }
+                    }
+                }
+                if (num > 0) outlineChapterMap.put(num, oct);
+            }
+        }
+        System.out.println("[EXPORT-DOCX] Outline chapter titles: " + outlineChapterMap);
 
         for (int li = 0; li < lines.length; li++) {
             String line = lines[li];
             String t = line.trim();
+
+            // Skip outline block lines
+            if (outlineSkipLines.contains(li)) {
+                continue;
+            }
 
             // Extract title from first non-empty line
             if (title == null && !t.isEmpty()) {
@@ -409,8 +500,8 @@ public class OptimizationController {
             boolean isMarkdownHeading = t.matches("^#{1,4}\\s+.+");
             // Table title line: e.g. "表 3-1 ..." or "表3-1..."
             boolean isTableTitle = t.matches("^表\\s*\\d+[-—]\\d+.*");
-            // Mermaid technical-route lines
-            boolean isMermaidStart = t.matches("^graph[A-Za-z]{2}.*");
+            // Mermaid technical-route lines (e.g. "graph TD", "graphTD", "graph LR")
+            boolean isMermaidStart = t.matches("^graph\\s*[A-Za-z]{2}.*");
             boolean isMermaidArrowLine = t.contains("-->");
             boolean isMermaidLine = isMermaidStart || isMermaidArrowLine;
 
@@ -421,15 +512,23 @@ public class OptimizationController {
                 skipFollowingRawTableRows = false;
             }
 
-            // --- TOC outline detection ---
+            // --- TOC section detection ---
+            // Skip the "目录" heading and actual TOC entries (lines with tab chars, page numbers, or dot leaders)
             if (isTocHeading) {
                 inTocSection = true;
                 continue;
             }
             if (inTocSection) {
-                if (t.isEmpty() || isChapter || isSection || isSubsection || t.contains("\t")) {
+                // Real TOC entries typically contain: tab characters, dot leaders (……), page numbers at end
+                boolean isTocEntry = t.contains("\t") 
+                        || t.matches(".*\\.{3,}.*")           // dot leaders
+                        || t.matches(".*…{2,}.*")             // Chinese dot leaders
+                        || t.matches(".*\\d+\\s*$")           // ends with page number
+                        || t.contains("点击此处") || t.contains("更新域") || t.contains("生成目录");
+                if (t.isEmpty() || isTocEntry) {
                     continue;
                 }
+                // Non-TOC content encountered, exit TOC section
                 inTocSection = false;
             }
 
@@ -439,12 +538,64 @@ public class OptimizationController {
                 continue;
             }
 
+            // Auto-insert missing chapter title from outline block before section/subsection headings
+            if ((isSection || isSubsection) && !outlineChapterMap.isEmpty()) {
+                // Extract chapter number from section heading (e.g., "1.2" -> chapter 1)
+                String headingForCheck = t.replaceFirst("^#{1,4}\\s+", "");
+                java.util.regex.Matcher secMatcher = java.util.regex.Pattern.compile("^(\\d+)\\.").matcher(headingForCheck);
+                if (secMatcher.find()) {
+                    int chapterNum = Integer.parseInt(secMatcher.group(1));
+                    if (!outputChapterNumbers.contains(chapterNum) && outlineChapterMap.containsKey(chapterNum)) {
+                        String chapterTitle = outlineChapterMap.get(chapterNum);
+                        md.append("## ").append(chapterTitle).append("\n");
+                        outputChapterNumbers.add(chapterNum);
+                        System.out.println("[EXPORT-DOCX] Auto-inserted missing chapter: " + chapterTitle);
+                    }
+                }
+            }
+
             if (isMarkdownHeading) {
-                md.append(t).append("\n");
+                // Clean markdown headings: remove description after period
+                String cleanHeading = t;
+                if (t.matches("^#{1,4}\\s+第[一二三四五六七八九十百\\d]+章[：:].+")) {
+                    // Remove description after period for chapter headings
+                    cleanHeading = t.replaceAll("[。.].*$", "");
+                }
+                md.append(cleanHeading).append("\n");
+                // Track chapter number if this is a chapter heading in markdown format
+                String stripped = cleanHeading.replaceFirst("^#{1,4}\\s+", "");
+                java.util.regex.Matcher chMatcher = java.util.regex.Pattern.compile("^第([一二三四五六七八九十百\\d]+)章").matcher(stripped);
+                if (chMatcher.find()) {
+                    String numStr = chMatcher.group(1);
+                    int num = -1;
+                    try { num = Integer.parseInt(numStr); } catch (NumberFormatException e) {
+                        for (int ni = 0; ni < chineseNums.length; ni++) {
+                            if (chineseNums[ni].equals(numStr)) { num = ni; break; }
+                        }
+                    }
+                    if (num > 0) outputChapterNumbers.add(num);
+                }
             } else if (isSpecialHeading) {
                 md.append("## ").append(t).append("\n");
             } else if (isChapter) {
-                md.append("## ").append(t).append("\n");
+                // Clean chapter headings: remove description after period
+                String cleanChapter = t;
+                if (t.matches("^第[一二三四五六七八九十百\\d]+章[：:].+")) {
+                    cleanChapter = t.replaceAll("[。.].*$", "");
+                }
+                md.append("## ").append(cleanChapter).append("\n");
+                // Track chapter number
+                java.util.regex.Matcher chMatcher = java.util.regex.Pattern.compile("^第([一二三四五六七八九十百\\d]+)章").matcher(cleanChapter);
+                if (chMatcher.find()) {
+                    String numStr = chMatcher.group(1);
+                    int num = -1;
+                    try { num = Integer.parseInt(numStr); } catch (NumberFormatException e) {
+                        for (int ni = 0; ni < chineseNums.length; ni++) {
+                            if (chineseNums[ni].equals(numStr)) { num = ni; break; }
+                        }
+                    }
+                    if (num > 0) outputChapterNumbers.add(num);
+                }
             } else if (isSubsection) {
                 md.append("#### ").append(t).append("\n");
             } else if (isSection) {
@@ -459,7 +610,14 @@ public class OptimizationController {
                     if (mt.isEmpty()) {
                         break;
                     }
-                    if (mt.contains("-->") || mt.startsWith("subgraph") || mt.equals("end")) {
+                    // Recognize mermaid syntax: arrows, subgraph, end, nodes with brackets, semicolons
+                    boolean isMermaidSyntax = mt.contains("-->") 
+                            || mt.startsWith("subgraph") || mt.equals("end")
+                            || mt.matches("^[A-Za-z].*\\[.*\\].*")  // node definitions like A[text]
+                            || mt.matches("^[A-Za-z].*-->.*")       // arrow lines
+                            || mt.endsWith(";")                      // lines ending with semicolon
+                            || mt.contains("&");                     // parallel connections like G&H
+                    if (isMermaidSyntax) {
                         md.append(mt).append("\n");
                         j++;
                         continue;
@@ -706,5 +864,47 @@ public class OptimizationController {
     @PostMapping("/sessions/{sessionId}/delete")
     public ResponseEntity<ApiResponse<Map<String, Object>>> deleteSessionCompat(@PathVariable String sessionId) {
         return deleteSession(sessionId);
+    }
+
+    /**
+     * Mark all lines in an outline cluster (from first chapter title to last chapter title)
+     * as lines to skip. Also marks short intro lines between/before chapter titles.
+     */
+    private void markOutlineCluster(String[] lines, java.util.List<Integer> chapterLines,
+                                     int clusterStartIdx, int clusterEndIdx,
+                                     java.util.Set<Integer> outlineSkipLines,
+                                     java.util.List<String> outlineChapterTitles) {
+        int firstLine = chapterLines.get(clusterStartIdx);
+        int lastLine = chapterLines.get(clusterEndIdx);
+        
+        // Also look backwards from the first chapter line for a short intro line
+        // (e.g., "本文的结构安排如下：")
+        int scanStart = firstLine;
+        for (int pi = firstLine - 1; pi >= Math.max(0, firstLine - 3); pi--) {
+            String pt = lines[pi].trim();
+            if (pt.isEmpty()) continue;
+            if (pt.length() <= 80 && (pt.contains("结构") || pt.contains("安排") 
+                    || pt.contains("如下") || pt.contains("章节") || pt.contains("论文结构"))) {
+                scanStart = pi;
+                break;
+            }
+            break; // stop at first non-matching non-empty line
+        }
+        
+        // Mark all lines from scanStart to lastLine as skip, and collect chapter titles
+        for (int pi = scanStart; pi <= lastLine; pi++) {
+            String pt = lines[pi].trim();
+            if (!pt.isEmpty()) {
+                outlineSkipLines.add(pi);
+                // Collect chapter titles (strip ## prefix)
+                String stripped = pt.replaceFirst("^#{1,4}\\s+", "");
+                if (stripped.matches("^第[一二三四五六七八九十百\\d]+章.*")) {
+                    // Clean: remove description after period (e.g., "第一章：绪论。阐述..." → "第一章：绪论")
+                    String clean = stripped.replaceAll("[。.].*$", "");
+                    outlineChapterTitles.add(clean);
+                }
+                System.out.println("[EXPORT-DOCX] Outline skip line " + pi + ": " + pt.substring(0, Math.min(40, pt.length())));
+            }
+        }
     }
 }

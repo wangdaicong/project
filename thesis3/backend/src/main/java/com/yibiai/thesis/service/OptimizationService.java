@@ -456,11 +456,17 @@ public class OptimizationService {
 
                 messages = new ArrayList<>();
                 messages.add(new DeepSeekService.Message("system",
-                        "Translate the following Chinese academic abstract into English. " +
-                        "Output ONLY the English translation. " +
-                        "Do NOT include any preamble, explanation, greeting, or self-introduction. " +
-                        "Do NOT say things like 'As a professional...' or 'I will...'. " +
-                        "Start directly with the translated content."));
+                        "You are a professional academic translator. Translate the following Chinese abstract into English. \n\n" +
+                        "CRITICAL RULES:\n" +
+                        "1. Output ONLY pure English text - NO Chinese characters allowed\n" +
+                        "2. Do NOT add any preamble, explanation, or introduction\n" +
+                        "3. Do NOT say 'Here is the translation' or 'As a translator' or similar phrases\n" +
+                        "4. Start directly with the English translation of the abstract content\n" +
+                        "5. Maintain the same paragraph structure as the original\n" +
+                        "6. Use academic English style with PROPER SPACING between all words\n" +
+                        "7. IMPORTANT: Ensure there is a space between every word (e.g., 'the deep' not 'thedeep')\n" +
+                        "8. If you see 'Key words:' or '关键词：', translate it as 'Key words:' followed by the English keywords\n" +
+                        "9. Use proper punctuation and formatting"));
                 messages.add(new DeepSeekService.Message("user", zhContent));
             } else {
                 String systemPrompt = "polish".equals(stage) ? AigcService.DEFAULT_POLISH_PROMPT : AigcService.DEFAULT_ENHANCE_PROMPT;
@@ -699,11 +705,17 @@ public class OptimizationService {
 
                     messages = new ArrayList<>();
                     messages.add(new DeepSeekService.Message("system",
-                            "Translate the following Chinese academic abstract into English. " +
-                            "Output ONLY the English translation. " +
-                            "Do NOT include any preamble, explanation, greeting, or self-introduction. " +
-                            "Do NOT say things like 'As a professional...' or 'I will...'. " +
-                            "Start directly with the translated content."));
+                            "You are a professional academic translator. Translate the following Chinese abstract into English. \n\n" +
+                            "CRITICAL RULES:\n" +
+                            "1. Output ONLY pure English text - NO Chinese characters allowed\n" +
+                            "2. Do NOT add any preamble, explanation, or introduction\n" +
+                            "3. Do NOT say 'Here is the translation' or 'As a translator' or similar phrases\n" +
+                            "4. Start directly with the English translation of the abstract content\n" +
+                            "5. Maintain the same paragraph structure as the original\n" +
+                            "6. Use academic English style with PROPER SPACING between all words\n" +
+                            "7. IMPORTANT: Ensure there is a space between every word (e.g., 'the deep' not 'thedeep')\n" +
+                            "8. If you see 'Key words:' or '关键词：', translate it as 'Key words:' followed by the English keywords\n" +
+                            "9. Use proper punctuation and formatting"));
                     messages.add(new DeepSeekService.Message("user", zhContent));
                 } else {
                     String systemPrompt = "polish".equals(stage) ? AigcService.DEFAULT_POLISH_PROMPT : AigcService.DEFAULT_ENHANCE_PROMPT;
@@ -912,13 +924,41 @@ public class OptimizationService {
 
     private String postProcessText(String text) {
         if (text == null || text.isEmpty()) return text;
-        if (isEnglishDominant(text)) return text;
+        
+        // Fix English word spacing issues
+        if (isEnglishDominant(text)) {
+            return fixEnglishWordSpacing(text);
+        }
 
         String s = text;
         for (String[] pair : AIGC_MARKER_REPLACEMENTS) {
             s = s.replace(pair[0], pair[1]);
         }
         return s;
+    }
+    
+    private String fixEnglishWordSpacing(String text) {
+        if (text == null || text.isEmpty()) return text;
+        
+        // Fix common word concatenation patterns in English text
+        // Pattern: lowercase letter followed immediately by uppercase letter (e.g., "theDeep" -> "the Deep")
+        String fixed = text.replaceAll("([a-z])([A-Z])", "$1 $2");
+        
+        // Pattern: word ending followed by "of" without space (e.g., "trajectory of" -> keep, "trajectoryof" -> "trajectory of")
+        fixed = fixed.replaceAll("([a-z])(of)([A-Z])", "$1 $2 $3");
+        fixed = fixed.replaceAll("([a-z])(of)\\b", "$1 $2");
+        
+        // Pattern: common prepositions and articles stuck to words
+        String[] commonWords = {"the", "and", "of", "to", "in", "for", "on", "with", "by", "from", "at", "as"};
+        for (String word : commonWords) {
+            // Fix: "wordthe" -> "word the"
+            fixed = fixed.replaceAll("([a-z])(" + word + ")([A-Z])", "$1 $2 $3");
+            fixed = fixed.replaceAll("([a-z])(" + word + ")\\b", "$1 $2");
+            // Fix: "theword" -> "the word"
+            fixed = fixed.replaceAll("\\b(" + word + ")([A-Z])", "$1 $2");
+        }
+        
+        return fixed;
     }
 
     private boolean isEnglishDominant(String text) {

@@ -28,6 +28,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTP;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTDecimalNumber;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSimpleField;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -298,6 +299,7 @@ public class PaperService {
 
         if (section.contains("参考文献")) {
             sb.append("6. 生成真实可查的参考文献，格式使用GB/T 7714标准，至少20条\n");
+            sb.append("7. **重要**：参考文献部分只输出文献列表，每条文献单独一行，不要生成表格、不要生成图表、不要生成任何其他格式的内容\n");
         }
 
         if (section.contains("致谢")) {
@@ -308,16 +310,19 @@ public class PaperService {
             sb.append(languageHint).append("\n");
         }
 
-        if (Boolean.TRUE.equals(request.getIncludeCharts())) {
+        // 参考文献和致谢章节不应用图表、公式、代码等设置
+        boolean isReferenceOrAck = section.contains("参考文献") || section.contains("致谢");
+        
+        if (!isReferenceOrAck && Boolean.TRUE.equals(request.getIncludeCharts())) {
             sb.append("适当加入数据表格，使用markdown表格格式\n");
         }
-        if (Boolean.TRUE.equals(request.getIncludeImages())) {
+        if (!isReferenceOrAck && Boolean.TRUE.equals(request.getIncludeImages())) {
             sb.append("适当加入插图，使用markdown图片语法 ![图注](https://picsum.photos/seed/fig1/800/400)\n");
         }
-        if (Boolean.TRUE.equals(request.getIncludeFormulas())) {
+        if (!isReferenceOrAck && Boolean.TRUE.equals(request.getIncludeFormulas())) {
             sb.append("适当加入数学公式，使用LaTeX格式\n");
         }
-        if (Boolean.TRUE.equals(request.getIncludeCode())) {
+        if (!isReferenceOrAck && Boolean.TRUE.equals(request.getIncludeCode())) {
             sb.append("适当加入代码示例，使用markdown代码块\n");
         }
 
@@ -558,24 +563,101 @@ public class PaperService {
             String content = sanitizeExportContent(title, markdownContent);
             buildDocxThesis(doc, title, content);
 
-            // Ensure Word updates all fields (PAGEREF) when the document is opened
+            // Set document body sectPr for the LAST section (main content)
+            // This is critical: the body-level sectPr defines the final section's properties
             try {
-                org.apache.poi.xwpf.usermodel.XWPFSettings settings = doc.getSettings();
-                // Use reflection to access getCTSettings() which may have protected access
-                java.lang.reflect.Method m = settings.getClass().getDeclaredMethod("getCTSettings");
-                m.setAccessible(true);
-                org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSettings ctSettings =
-                        (org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSettings) m.invoke(settings);
-                if (!ctSettings.isSetUpdateFields()) {
-                    ctSettings.addNewUpdateFields();
+                org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBody body = doc.getDocument().getBody();
+                org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr bodySectPr;
+                if (body.isSetSectPr()) {
+                    bodySectPr = body.getSectPr();
+                } else {
+                    bodySectPr = body.addNewSectPr();
                 }
-                ctSettings.getUpdateFields().setVal(true);
-                System.out.println("[EXPORT] updateFields set to true successfully");
+                // Ensure page number starts at 1 for the last (main content) section
+                if (!bodySectPr.isSetPgNumType()) {
+                    bodySectPr.addNewPgNumType();
+                }
+                bodySectPr.getPgNumType().setStart(BigInteger.ONE);
+                // Ensure footer is set
+                if (footerRelId != null && bodySectPr.sizeOfFooterReferenceArray() == 0) {
+                    org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHdrFtrRef footerRef = bodySectPr.addNewFooterReference();
+                    footerRef.setType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr.DEFAULT);
+                    footerRef.setId(footerRelId);
+                }
+                System.out.println("[EXPORT] Body sectPr: pageStart=1, footer=" + (footerRelId != null));
             } catch (Exception ex) {
-                System.out.println("[EXPORT] Failed to set updateFields: " + ex.getClass().getName() + ": " + ex.getMessage());
+                System.out.println("[EXPORT] Failed to set body sectPr: " + ex.getMessage());
             }
 
-            doc.write(out);
+            // Set updateFields in document settings BEFORE writing
+            // This ensures Word updates all fields (TOC page numbers) when the document is opened
+            try {
+                // Mark all fields as dirty
+                for (org.apache.poi.xwpf.usermodel.XWPFParagraph para : doc.getParagraphs()) {
+                    org.openxmlformats.schemas.wordprocessingml.x2006.main.CTP ctp = para.getCTP();
+                    for (org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r : ctp.getRList()) {
+                        if (r.sizeOfFldCharArray() > 0) {
+                            for (org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFldChar fldChar : r.getFldCharArray()) {
+                                fldChar.setDirty(true);
+                            }
+                        }
+                    }
+                }
+                System.out.println("[EXPORT] Marked all fields as dirty for auto-update");
+            } catch (Exception ex) {
+                System.out.println("[EXPORT] Failed to mark fields as dirty: " + ex.getMessage());
+                ex.printStackTrace();
+            }
+            
+            // Write document to temporary byte array first
+            ByteArrayOutputStream tempOut = new ByteArrayOutputStream();
+            doc.write(tempOut);
+            doc.close();
+            
+            // Now reopen as OPCPackage to add settings.xml with updateFields
+            try (ByteArrayInputStream in = new ByteArrayInputStream(tempOut.toByteArray());
+                 org.apache.poi.openxml4j.opc.OPCPackage pkg = org.apache.poi.openxml4j.opc.OPCPackage.open(in)) {
+                
+                // Create settings.xml part if it doesn't exist
+                org.apache.poi.openxml4j.opc.PackagePartName settingsPartName = 
+                    org.apache.poi.openxml4j.opc.PackagingURIHelper.createPartName("/word/settings.xml");
+                
+                org.apache.poi.openxml4j.opc.PackagePart settingsPart;
+                if (!pkg.containPart(settingsPartName)) {
+                    settingsPart = pkg.createPart(settingsPartName, 
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml");
+                    
+                    // Add relationship from document.xml to settings.xml
+                    org.apache.poi.openxml4j.opc.PackagePartName docPartName = 
+                        org.apache.poi.openxml4j.opc.PackagingURIHelper.createPartName("/word/document.xml");
+                    org.apache.poi.openxml4j.opc.PackagePart docPart = pkg.getPart(docPartName);
+                    docPart.addRelationship(settingsPartName, 
+                        org.apache.poi.openxml4j.opc.TargetMode.INTERNAL,
+                        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings");
+                } else {
+                    settingsPart = pkg.getPart(settingsPartName);
+                }
+                
+                // Write settings.xml with updateFields=true
+                String settingsXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" +
+                    "<w:settings xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">\n" +
+                    "  <w:updateFields w:val=\"true\"/>\n" +
+                    "</w:settings>";
+                
+                try (java.io.OutputStream settingsOut = settingsPart.getOutputStream()) {
+                    settingsOut.write(settingsXml.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+                
+                // Save the modified package to final output
+                pkg.save(out);
+                System.out.println("[EXPORT] Set updateFields=true in settings.xml via OPCPackage");
+            } catch (Exception ex) {
+                System.out.println("[EXPORT] Failed to set updateFields via OPCPackage: " + ex.getMessage());
+                ex.printStackTrace();
+                // Fallback: just write the original document
+                out.write(tempOut.toByteArray());
+            }
+            
             return out.toByteArray();
         } catch (Exception e) {
             throw new RuntimeException("导出Word失败：" + e.getMessage(), e);
@@ -739,7 +821,9 @@ public class PaperService {
                 inZhSection = false;
                 abstractBlockIndices.add(i);
                 if (!enTitleAdded) {
-                    // End Chinese abstract section: with footer, reset page to 1 (ZH abstract starts from page 1)
+                    // End Chinese abstract section: with footer, reset page to 1
+                    // This sectPr defines the ZH abstract section properties (page starts at 1)
+                    // The EN abstract section will NOT reset, so it continues from ZH numbering
                     addDocxSectionBreak(doc, true, true);
                     // 英文摘要："ABSTRACT"为三号Arial居中加黑，段前24磅，段后18磅
                     addDocxCenteredTitle(doc, "ABSTRACT", "Arial", FONT_SAN_HAO, true, 24, 18);
@@ -771,27 +855,50 @@ public class PaperService {
             // 英文关键词："Key words"小四号Times New Roman加黑，顶格书写，关键词小四号Times New Roman
             addDocxKeywords(doc, "Key words", enKeywords, false);
         }
+        // === Pass 2: End abstract section and start TOC ===
         if (enTitleAdded) {
-            // End English abstract section: with footer, NO reset (EN continues from ZH abstract page numbering)
+            // End English abstract section: has footer, NO reset (continues from ZH abstract)
+            // The TOC section's page reset is handled by the sectPr after TOC entries
             addDocxSectionBreak(doc, true, false);
+        } else {
+            // No English abstract - end ZH abstract section with footer + reset
+            addDocxSectionBreak(doc, true, true);
         }
-
-        // === Pass 2: Add TOC section break to end abstracts and start TOC with page reset ===
-        addDocxSectionBreak(doc, true, true);
         addDocxCenteredTitle(doc, "目 录", "黑体", FONT_SAN_HAO, true, 24, 18);
         
-        // === Pass 3: Collect TOC entries from blocks ===
-        java.util.List<TocEntryWithBookmark> tocEntries = collectTocEntries(blocks);
+        // Add native Word TOC field - Word will auto-generate and update the table of contents
+        // This is more reliable than manual PAGEREF fields
+        XWPFParagraph tocPara = doc.createParagraph();
+        tocPara.setAlignment(ParagraphAlignment.LEFT);
         
-        // === Pass 4: Insert TOC entries ===
-        for (TocEntryWithBookmark entry : tocEntries) {
-            addDocxTocEntryWithPageRef(doc, entry.title, entry.level, entry.bookmarkName);
-        }
+        // Create TOC field with switches for outline levels 1-3, hyperlinks, etc.
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTP ctP = tocPara.getCTP();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r1 = ctP.addNewR();
+        r1.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.BEGIN);
         
-        // === Pass 5: Add section break after TOC to start main content with page reset ===
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r2 = ctP.addNewR();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText instrText = r2.addNewInstrText();
+        instrText.setStringValue(" TOC \\o \"1-3\" \\h \\z \\u ");
+        instrText.setSpace(org.apache.xmlbeans.impl.xb.xmlschema.SpaceAttribute.Space.PRESERVE);
+        
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r3 = ctP.addNewR();
+        r3.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.SEPARATE);
+        
+        // Placeholder text
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r4 = ctP.addNewR();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText placeholderText = r4.addNewT();
+        placeholderText.setStringValue("\u53f3\u952e\u70b9\u51fb\u6b64\u5904\uff0c\u9009\u62e9\u201c\u66f4\u65b0\u57df\u201d\u4ee5\u751f\u6210\u76ee\u5f55");
+        
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r5 = ctP.addNewR();
+        r5.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.END);
+        
+        // Mark TOC field as dirty so Word will update it on open
+        r1.getFldCharArray(0).setDirty(true);
+        
+        // Section break after TOC to start main content
         addDocxSectionBreak(doc, true, true);
         
-        System.out.println("[DEBUG] TOC entries added: " + tocEntries.size());
+        System.out.println("[DEBUG] Native TOC field added");
         System.out.println("[DEBUG] Total paragraphs after TOC: " + doc.getParagraphs().size());
 
         // === Pass 6: Render all remaining content ===
@@ -1077,11 +1184,14 @@ public class PaperService {
         }
         flush.accept(currentLevel, currentHeading);
 
-        // Second pass: split combined ZH_ABSTRACT that contains embedded English abstract
+        // Second pass: split combined ZH_ABSTRACT that contains embedded English abstract,
+        // and split EN_ABSTRACT that contains trailing Chinese body text after Keywords line
         List<Block> splitBlocks = new java.util.ArrayList<>();
         for (Block b : rawBlocks) {
             if (b.type() == BlockType.ZH_ABSTRACT) {
                 splitAbstractBlock(b, splitBlocks);
+            } else if (b.type() == BlockType.EN_ABSTRACT) {
+                splitEnAbstractBlock(b, splitBlocks);
             } else {
                 splitBlocks.add(b);
             }
@@ -1219,6 +1329,76 @@ public class PaperService {
         } else {
             // No English abstract found, keep as-is
             out.add(zhBlock);
+        }
+    }
+
+    /**
+     * Split an EN_ABSTRACT block that may contain trailing Chinese body text after Keywords line.
+     * This happens when the original text has no "## 第一章" heading between ABSTRACT and the first chapter content.
+     */
+    private void splitEnAbstractBlock(Block enBlock, List<Block> out) {
+        String text = enBlock.text();
+        String[] lines = text.split("\n", -1);
+
+        // Find the Keywords line (English keywords marker)
+        int keywordsIdx = -1;
+        for (int i = 0; i < lines.length; i++) {
+            String trimmed = lines[i].trim();
+            if (trimmed.matches("(?i)^\\**\\s*Key\\s*words?\\s*[:：].*")) {
+                keywordsIdx = i;
+                break;
+            }
+        }
+
+        // If no Keywords line found, look for first Chinese-dominant line after English content
+        int splitIdx = -1;
+        if (keywordsIdx >= 0) {
+            // Check lines after Keywords for Chinese content
+            for (int i = keywordsIdx + 1; i < lines.length; i++) {
+                String trimmed = lines[i].trim();
+                if (trimmed.isEmpty()) continue;
+                if (!isEnglishDominant(trimmed)) {
+                    splitIdx = i;
+                    break;
+                }
+            }
+        } else {
+            // No Keywords line - look for transition from English to Chinese
+            boolean foundEnglish = false;
+            for (int i = 0; i < lines.length; i++) {
+                String trimmed = lines[i].trim();
+                if (trimmed.isEmpty()) continue;
+                if (isEnglishDominant(trimmed)) {
+                    foundEnglish = true;
+                } else if (foundEnglish) {
+                    // First non-English line after English content
+                    splitIdx = i;
+                    break;
+                }
+            }
+        }
+
+        if (splitIdx > 0 && splitIdx < lines.length) {
+            StringBuilder enPart = new StringBuilder();
+            StringBuilder zhPart = new StringBuilder();
+            for (int i = 0; i < lines.length; i++) {
+                if (i < splitIdx) {
+                    enPart.append(lines[i]).append("\n");
+                } else {
+                    zhPart.append(lines[i]).append("\n");
+                }
+            }
+            String enText = enPart.toString().trim();
+            String zhText = zhPart.toString().trim();
+            if (!enText.isEmpty()) {
+                out.add(new Block(BlockType.EN_ABSTRACT, enText));
+            }
+            if (!zhText.isEmpty()) {
+                System.out.println("[PARSE] Split EN_ABSTRACT: trailing Chinese body (" + zhText.length() + " chars) moved to PARAGRAPH");
+                out.add(new Block(BlockType.PARAGRAPH, zhText));
+            }
+        } else {
+            out.add(enBlock);
         }
     }
 
@@ -1551,24 +1731,78 @@ public class PaperService {
         XWPFRun tabRun = p.createRun();
         tabRun.addTab();
 
-        // Use PAGEREF field to reference the bookmark's actual page number
-        CTP ctpForPageRef = p.getCTP();
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSimpleField pageRefField = ctpForPageRef.addNewFldSimple();
-        pageRefField.setInstr(" PAGEREF " + bookmarkName + " \\h ");
-        
-        // Add a run inside the field with placeholder text (will be updated by Word)
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR fieldRun = pageRefField.addNewR();
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr fieldRPr = fieldRun.addNewRPr();
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts fieldFonts = fieldRPr.addNewRFonts();
-        fieldFonts.setAscii("宋体");
-        fieldFonts.setEastAsia("宋体");
-        fieldFonts.setHAnsi("宋体");
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure fieldSz = fieldRPr.addNewSz();
-        fieldSz.setVal(BigInteger.valueOf(fontSize * 2));
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure fieldSzCs = fieldRPr.addNewSzCs();
-        fieldSzCs.setVal(BigInteger.valueOf(fontSize * 2));
-        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText fieldText = fieldRun.addNewT();
-        fieldText.setStringValue("1");
+        // Use complex field structure for PAGEREF (BEGIN + INSTR + SEPARATE + RESULT + END)
+        // This ensures Word will update the field when the document is opened
+        // BEGIN
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r1 = ctp.addNewR();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr rPr1 = r1.addNewRPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts fonts1 = rPr1.addNewRFonts();
+        fonts1.setAscii("宋体");
+        fonts1.setEastAsia("宋体");
+        fonts1.setHAnsi("宋体");
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure sz1 = rPr1.addNewSz();
+        sz1.setVal(BigInteger.valueOf(fontSize * 2));
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure szCs1 = rPr1.addNewSzCs();
+        szCs1.setVal(BigInteger.valueOf(fontSize * 2));
+        r1.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.BEGIN);
+
+        // INSTR
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r2 = ctp.addNewR();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr rPr2 = r2.addNewRPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts fonts2 = rPr2.addNewRFonts();
+        fonts2.setAscii("宋体");
+        fonts2.setEastAsia("宋体");
+        fonts2.setHAnsi("宋体");
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure sz2 = rPr2.addNewSz();
+        sz2.setVal(BigInteger.valueOf(fontSize * 2));
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure szCs2 = rPr2.addNewSzCs();
+        szCs2.setVal(BigInteger.valueOf(fontSize * 2));
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText instrText = r2.addNewInstrText();
+        instrText.setStringValue(" PAGEREF " + bookmarkName + " \\h \\* MERGEFORMAT ");
+        instrText.setSpace(org.apache.xmlbeans.impl.xb.xmlschema.SpaceAttribute.Space.PRESERVE);
+
+        // SEPARATE
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r3 = ctp.addNewR();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr rPr3 = r3.addNewRPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts fonts3 = rPr3.addNewRFonts();
+        fonts3.setAscii("宋体");
+        fonts3.setEastAsia("宋体");
+        fonts3.setHAnsi("宋体");
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure sz3 = rPr3.addNewSz();
+        sz3.setVal(BigInteger.valueOf(fontSize * 2));
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure szCs3 = rPr3.addNewSzCs();
+        szCs3.setVal(BigInteger.valueOf(fontSize * 2));
+        r3.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.SEPARATE);
+
+        // RESULT (placeholder that Word will update with actual page number)
+        // We need to provide an empty text node for Word to update
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r4 = ctp.addNewR();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr rPr4 = r4.addNewRPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts fonts4 = rPr4.addNewRFonts();
+        fonts4.setAscii("宋体");
+        fonts4.setEastAsia("宋体");
+        fonts4.setHAnsi("宋体");
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure sz4 = rPr4.addNewSz();
+        sz4.setVal(BigInteger.valueOf(fontSize * 2));
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure szCs4 = rPr4.addNewSzCs();
+        szCs4.setVal(BigInteger.valueOf(fontSize * 2));
+        // Add empty text node - Word will replace this with actual page number when updateFields runs
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText resultText = r4.addNewT();
+        resultText.setStringValue("");
+        resultText.setSpace(org.apache.xmlbeans.impl.xb.xmlschema.SpaceAttribute.Space.PRESERVE);
+
+        // END
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR r5 = ctp.addNewR();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr rPr5 = r5.addNewRPr();
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts fonts5 = rPr5.addNewRFonts();
+        fonts5.setAscii("宋体");
+        fonts5.setEastAsia("宋体");
+        fonts5.setHAnsi("宋体");
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure sz5 = rPr5.addNewSz();
+        sz5.setVal(BigInteger.valueOf(fontSize * 2));
+        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure szCs5 = rPr5.addNewSzCs();
+        szCs5.setVal(BigInteger.valueOf(fontSize * 2));
+        r5.addNewFldChar().setFldCharType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType.END);
     }
 
 
@@ -1662,6 +1896,7 @@ public class PaperService {
     }
 
     private void addDocxSectionBreak(XWPFDocument doc, boolean showPageNumber, boolean resetPageNumber) {
+        // Get the last paragraph and attach sectPr to it
         java.util.List<XWPFParagraph> paragraphs = doc.getParagraphs();
         XWPFParagraph lastPara;
         if (paragraphs.isEmpty()) {
@@ -1671,6 +1906,15 @@ public class PaperService {
         }
         CTP ctp = lastPara.getCTP();
         if (!ctp.isSetPPr()) ctp.addNewPPr();
+        
+        // If this paragraph already has a sectPr, REPLACE it instead of creating a new paragraph
+        // This prevents blank pages caused by consecutive section breaks
+        if (ctp.getPPr().isSetSectPr()) {
+            // Remove existing sectPr and replace with new one
+            ctp.getPPr().unsetSectPr();
+            System.out.println("[DEBUG] SectBreak: replaced existing sectPr on last paragraph");
+        }
+        
         org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr sectPr = ctp.getPPr().addNewSectPr();
         sectPr.addNewType().setVal(org.openxmlformats.schemas.wordprocessingml.x2006.main.STSectionMark.NEXT_PAGE);
 
@@ -1684,6 +1928,7 @@ public class PaperService {
             footerRef.setType(org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr.DEFAULT);
             footerRef.setId(footerRelId);
         }
+        System.out.println("[DEBUG] SectBreak: reset=" + resetPageNumber + " footer=" + showPageNumber);
     }
 
     private void addDocxTable(XWPFDocument doc, String tableMarkdown) {

@@ -400,6 +400,7 @@ function AigcPage() {
 
   const handleProcess = async () => {
     let textToProcess = '';
+    let originalFileName = null;
     
     if (submitMode === 'upload') {
       if (!uploadedFile) {
@@ -419,6 +420,7 @@ function AigcPage() {
           return;
         }
         textToProcess = uploadResult.data;
+        originalFileName = uploadedFile.name;
       } catch {
         toast.error('读取文件失败');
         return;
@@ -451,6 +453,7 @@ function AigcPage() {
     try {
       const startResp = await api.post('/optimization/start', {
         originalText: textToProcess,
+        originalFileName: originalFileName,
         processingMode: 'paper_polish_enhance'
       });
 
