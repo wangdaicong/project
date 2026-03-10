@@ -257,16 +257,10 @@ public class OptimizationController {
             String valTrimmed = val.trim();
             segMap.put(key, valTrimmed);
 
-            // Collect markdown table rows from BOTH original and processed text
+            // Collect markdown table rows from original text only (avoid duplication)
             java.util.List<String> tableRows = new java.util.ArrayList<>();
             if (key.startsWith("|")) {
                 tableRows.add(key);
-            }
-            for (String vl : valTrimmed.split("\\n")) {
-                String vt = vl.trim();
-                if (vt.startsWith("|")) {
-                    tableRows.add(vt);
-                }
             }
 
             if (!tableRows.isEmpty()) {
