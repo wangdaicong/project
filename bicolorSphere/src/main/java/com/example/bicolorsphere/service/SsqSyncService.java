@@ -42,8 +42,8 @@ public class SsqSyncService {
     }
 
     public SyncMissingResult syncMissing(int maxPages, int stopAfterNoInsertPages) {
-        int maxP = Math.max(1, Math.min(200, maxPages));
-        int stopAfter = Math.max(1, Math.min(20, stopAfterNoInsertPages));
+        int maxP = Math.max(1, Math.min(1000, maxPages));
+        int stopAfter = Math.max(1, Math.min(50, stopAfterNoInsertPages));
 
         int fetched = 0;
         int inserted = 0;

@@ -107,8 +107,8 @@ public class SsqController {
     }
 
     @PostMapping("/sync/missing")
-    public Object syncMissing(@RequestParam(defaultValue = "80") @Min(1) @Max(200) int maxPages,
-                              @RequestParam(defaultValue = "3") @Min(1) @Max(20) int stopAfterNoInsertPages) {
+    public Object syncMissing(@RequestParam(defaultValue = "300") @Min(1) @Max(1000) int maxPages,
+                              @RequestParam(defaultValue = "5") @Min(1) @Max(50) int stopAfterNoInsertPages) {
         SsqSyncService.SyncMissingResult r = syncService.syncMissing(maxPages, stopAfterNoInsertPages);
         Map<String, Object> m = new HashMap<String, Object>();
         m.put("scannedPages", r.getScannedPages());

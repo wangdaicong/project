@@ -151,12 +151,12 @@
             <select id="strategy" class="span2" title="预测策略：不同算法生成候选号码，可配合下方约束条件过滤">
               <option value="frequency_top">热号优先</option>
               <option value="omission_top">遗漏优先</option>
-              <option value="hybrid" selected>综合（热度+遗漏）</option>
+              <option value="hybrid">综合（热度+遗漏）</option>
               <option value="weighted_random">加权随机</option>
               <option value="zone_balanced">分区均衡（2:2:2）</option>
               <option value="markov">马尔科夫链</option>
               <option value="bayes">贝叶斯推理</option>
-              <option value="ml">机器学习（集成更稳+自动调权重）</option>
+              <option value="ml" selected>机器学习（集成更稳+自动调权重）</option>
             </select>
 
             <div class="lbl">注数</div>
@@ -165,17 +165,17 @@
             <input id="maxTry" placeholder="默认120" title="不满足约束时的最大重试次数（留空默认120）" />
 
             <div class="lbl">和值</div>
-            <input id="minSum" placeholder="最小" title="和值下限（6个红球相加）" />
+            <input id="minSum" value="90" title="和值下限（6个红球相加）" />
             <div class="lbl">和值</div>
-            <input id="maxSum" placeholder="最大" title="和值上限（6个红球相加）" />
+            <input id="maxSum" value="140" title="和值上限（6个红球相加）" />
 
             <div class="lbl">跨度</div>
-            <input id="minSpan" placeholder="最小" title="跨度下限（最大红球-最小红球）" />
+            <input id="minSpan" value="18" title="跨度下限（最大红球-最小红球）" />
             <div class="lbl">跨度</div>
-            <input id="maxSpan" placeholder="最大" title="跨度上限（最大红球-最小红球）" />
+            <input id="maxSpan" value="28" title="跨度上限（最大红球-最小红球）" />
 
             <div class="lbl">奇偶比</div>
-            <input id="oddEvenRatio" placeholder="如 3:3" title="奇偶比（奇:偶），如 3:3、4:2（两数之和必须为6）" />
+            <input id="oddEvenRatio" value="3:3" title="奇偶比（奇:偶），如 3:3、4:2（两数之和必须为6，默认3:3表示2-4个奇数）" />
 
             <div class="lbl">区间比</div>
             <input id="zoneRatio" placeholder="如 2:2:2" title="区间比（1-11 / 12-22 / 23-33），如 2:2:2（三数之和必须为6）" />
@@ -817,6 +817,7 @@
     html += '<th class="num">蓝</th>';
     html += '<th>真实红</th>';
     html += '<th class="num">蓝</th>';
+    html += '<th class="num">命中红球</th>';
     html += '<th class="num">命中率</th>';
     html += '<th class="num">误差率</th>';
     html += '</tr></thead><tbody>';
@@ -824,12 +825,23 @@
       const r = rows[i] || {};
       const hr = r.hit_rate == null ? '' : String(r.hit_rate);
       const er = r.error_rate == null ? '' : String(r.error_rate);
+      
+      // 计算命中的红球
+      let hitReds = '';
+      if (r.predict_reds && r.actual_reds) {
+        const predArr = String(r.predict_reds).split(/\s+/).map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+        const actArr = String(r.actual_reds).split(/\s+/).map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+        const hits = predArr.filter(n => actArr.includes(n));
+        hitReds = hits.length > 0 ? hits.sort((a,b) => a-b).map(n => String(n).padStart(2, '0')).join(' ') : '-';
+      }
+      
       html += '<tr>';
       html += `<td>${r.draw_no || ''}</td>`;
       html += `<td>${r.predict_reds || ''}</td>`;
       html += `<td class="num">${r.predict_blue == null ? '' : r.predict_blue}</td>`;
       html += `<td>${r.actual_reds || ''}</td>`;
       html += `<td class="num">${r.actual_blue == null ? '' : r.actual_blue}</td>`;
+      html += `<td class="num">${hitReds}</td>`;
       html += `<td class="num">${hr}</td>`;
       html += `<td class="num">${er}</td>`;
       html += '</tr>';
@@ -1029,9 +1041,14 @@
     elSyncBtn.disabled = true;
     elSyncStatus.innerText = '同步中...';
     try {
-      const res = await fetch(api('/api/sync/missing?maxPages=120&stopAfterNoInsertPages=3'), { method: 'POST' });
+      const res = await fetch(api('/api/sync/missing?maxPages=500&stopAfterNoInsertPages=5'), { method: 'POST' });
       const data = await res.json();
-      elSyncStatus.innerText = `同步完成：scanned=${data.scannedPages}, inserted=${data.inserted}, errors=${(data.errors||[]).length}`;
+      const msg = `扫描${data.scannedPages}页, 新增${data.inserted}条`;
+      if (data.inserted === 0 && data.scannedPages < 50) {
+        elSyncStatus.innerText = msg + ' (已是最新)';
+      } else {
+        elSyncStatus.innerText = msg;
+      }
       await loadTrend();
     } finally {
       elSyncBtn.disabled = false;
