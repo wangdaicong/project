@@ -1,0 +1,114 @@
+<view class="container">
+  <view class="header">
+    <text class="title">多元升学规划</text>
+    <text class="subtitle">多条路径通向成功，找到最适合你的</text>
+  </view>
+
+  <view class="score-input-box">
+    <text class="input-label">我的高考分数：</text>
+    <input class="score-input" type="number" placeholder="请输入分数" bindinput="onScoreInput" value="{{userScore}}" />
+    <button class="recommend-btn" bindtap="getRecommendation">获取推荐</button>
+  </view>
+
+  <view class="paths-list">
+    <view class="path-card" wx:for="{{paths}}" wx:key="id" bindtap="onPathTap" data-id="{{item.id}}">
+      <view class="path-header">
+        <view class="path-name-box">
+          <text class="path-name">{{item.name}}</text>
+          <text class="path-type">{{item.type}}</text>
+        </view>
+        <view wx:if="{{item.matchScore}}" class="match-score">
+          <text class="score-value">{{item.matchScore}}</text>
+          <text class="score-label">匹配度</text>
+        </view>
+      </view>
+
+      <view class="path-desc">
+        <text>{{item.description}}</text>
+      </view>
+
+      <view class="path-info">
+        <view class="info-item">
+          <text class="info-icon">✓</text>
+          <text class="info-text">{{item.advantages}}</text>
+        </view>
+        <view class="info-item warning">
+          <text class="info-icon">!</text>
+          <text class="info-text">{{item.disadvantages}}</text>
+        </view>
+      </view>
+
+      <view class="suitable-tag">
+        <text class="tag-icon">👥</text>
+        <text class="tag-text">{{item.suitableStudents}}</text>
+      </view>
+
+      <view class="view-detail-btn">
+        <text>查看详情 →</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{selectedPath}}" class="detail-modal" bindtap="closeDetail">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">{{selectedPath.name}}</text>
+        <text class="close-btn" bindtap="closeDetail">✕</text>
+      </view>
+
+      <scroll-view class="modal-body" scroll-y>
+        <view class="detail-section">
+          <text class="section-title">📋 路径介绍</text>
+          <text class="section-content">{{selectedPath.description}}</text>
+        </view>
+
+        <view class="detail-section">
+          <text class="section-title">📝 申请要求</text>
+          <text class="section-content">{{selectedPath.requirements}}</text>
+        </view>
+
+        <view class="detail-section">
+          <text class="section-title">🏫 招生院校</text>
+          <view class="universities-list">
+            <text class="university-tag" wx:for="{{selectedPath.universitiesArray}}" wx:key="index">{{item}}</text>
+          </view>
+        </view>
+
+        <view class="detail-section">
+          <text class="section-title">📚 招生专业</text>
+          <view class="majors-list">
+            <text class="major-tag" wx:for="{{selectedPath.majorsArray}}" wx:key="index">{{item}}</text>
+          </view>
+        </view>
+
+        <view class="detail-section">
+          <text class="section-title">⏰ 时间安排</text>
+          <view class="timeline">
+            <view class="timeline-item" wx:for="{{selectedPath.timelineArray}}" wx:key="index">
+              <view class="timeline-dot"></view>
+              <view class="timeline-content">
+                <text class="timeline-month">{{item.month}}月</text>
+                <text class="timeline-event">{{item.event}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="detail-section">
+          <text class="section-title">✅ 优势</text>
+          <text class="section-content advantage">{{selectedPath.advantages}}</text>
+        </view>
+
+        <view class="detail-section">
+          <text class="section-title">⚠️ 注意事项</text>
+          <text class="section-content warning">{{selectedPath.disadvantages}}</text>
+        </view>
+
+        <view class="detail-section">
+          <text class="section-title">🎯 适合人群</text>
+          <text class="section-content">{{selectedPath.suitableStudents}}</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

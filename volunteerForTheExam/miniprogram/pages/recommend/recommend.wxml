@@ -1,0 +1,89 @@
+<view class="container">
+  <!-- 用户信息卡片 -->
+  <view class="user-info-card">
+    <view class="info-row">
+      <text class="info-label">您的分数：</text>
+      <text class="info-value">{{userScore}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">所在省份：</text>
+      <text class="info-value">{{userProvince}}</text>
+    </view>
+  </view>
+
+  <!-- 推荐结果 -->
+  <view class="recommend-section">
+    <view class="section-header">
+      <text class="section-title">🎯 智能推荐结果</text>
+      <text class="section-desc">基于大数据分析为您精准推荐</text>
+    </view>
+
+    <!-- 加载状态 -->
+    <view class="loading-box" wx:if="{{loading}}">
+      <view class="loading-icon">⏳</view>
+      <text class="loading-text">正在为您智能分析推荐...</text>
+    </view>
+
+    <!-- 推荐列表 -->
+    <view class="recommend-list" wx:else>
+      <view class="recommend-item" wx:for="{{recommendations}}" wx:key="id">
+        <!-- 院校信息 -->
+        <view class="university-card" bindtap="goToUniversityDetail" data-id="{{item.id}}">
+          <view class="card-header">
+            <view class="university-info">
+              <view class="university-name">{{item.name}}</view>
+              <view class="university-tags">
+                <text class="tag tag-level" wx:if="{{item.level}}">{{item.level}}</text>
+                <text class="tag">{{item.type}}</text>
+              </view>
+            </view>
+            <view class="probability-badge probability-{{item.probabilityClass}}">
+              {{item.probability}}
+            </view>
+          </view>
+          
+          <view class="university-meta">
+            <text class="meta-item">📍 {{item.province}} · {{item.city}}</text>
+            <text class="meta-item">🏆 排名：{{item.ranking || '-'}}</text>
+            <text class="meta-item">📊 最低分：{{item.minScore}}</text>
+          </view>
+        </view>
+
+        <!-- 专家推荐理由 -->
+        <view class="reason-card">
+          <view class="reason-header">
+            <text class="reason-icon">📋</text>
+            <text class="reason-title">专家分析</text>
+          </view>
+          
+          <view class="reason-content" wx:if="{{item.reason}}">
+            {{item.reason}}
+          </view>
+          
+          <view class="reason-loading" wx:else>
+            <text class="loading-text">正在分析...</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{!loading && recommendations.length === 0}}">
+      <text class="empty-icon">📭</text>
+      <text class="empty-text">暂无推荐结果</text>
+      <text class="empty-hint">请先在首页输入您的分数</text>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-buttons" wx:if="{{recommendations.length > 0}}">
+    <button class="action-btn" bindtap="regenerate">
+      <text class="btn-icon">🔄</text>
+      <text>重新推荐</text>
+    </button>
+    <button class="action-btn action-btn-primary" bindtap="goToUniversityPage">
+      <text class="btn-icon">🔍</text>
+      <text>查看更多院校</text>
+    </button>
+  </view>
+</view>

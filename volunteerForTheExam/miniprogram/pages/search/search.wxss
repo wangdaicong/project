@@ -1,0 +1,243 @@
+.search-bar {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 20rpx;
+  background: #FFFFFF;
+  padding: 20rpx;
+  border-radius: 12rpx;
+}
+
+.search-input-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #F5F7FA;
+  border-radius: 8rpx;
+  padding: 0 20rpx;
+}
+
+.search-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 10rpx;
+}
+
+.search-input {
+  flex: 1;
+  height: 70rpx;
+  font-size: 28rpx;
+}
+
+.filter-btn {
+  background: #4A90E2;
+  color: #FFFFFF;
+  border-radius: 8rpx;
+  padding: 0 30rpx;
+  font-size: 28rpx;
+  line-height: 70rpx;
+  height: 70rpx;
+}
+
+.filter-panel {
+  background: #FFFFFF;
+  border-radius: 12rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+}
+
+.filter-item {
+  margin-bottom: 30rpx;
+}
+
+.filter-label {
+  font-size: 26rpx;
+  color: #7F8C8D;
+  margin-bottom: 15rpx;
+}
+
+.filter-value {
+  background: #F5F7FA;
+  padding: 20rpx;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  color: #2C3E50;
+}
+
+.score-range {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.score-input-small {
+  flex: 1;
+  background: #F5F7FA;
+  padding: 20rpx;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+}
+
+.score-separator {
+  color: #7F8C8D;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 30rpx;
+}
+
+.filter-actions button {
+  flex: 1;
+}
+
+.recommend-banner {
+  background: linear-gradient(135deg, #FEF5E7 0%, #FCF3CF 100%);
+  padding: 20rpx 30rpx;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  align-items: center;
+}
+
+.recommend-icon {
+  font-size: 32rpx;
+  margin-right: 10rpx;
+}
+
+.recommend-text {
+  font-size: 26rpx;
+  color: #D68910;
+  font-weight: 500;
+}
+
+.university-card {
+  margin-bottom: 20rpx;
+}
+
+.university-header {
+  display: flex;
+  margin-bottom: 20rpx;
+  position: relative;
+}
+
+.university-logo {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 12rpx;
+  margin-right: 20rpx;
+  background: #F5F7FA;
+}
+
+.university-info {
+  flex: 1;
+}
+
+.university-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #2C3E50;
+  margin-bottom: 10rpx;
+}
+
+.university-location {
+  font-size: 24rpx;
+  color: #7F8C8D;
+  margin-bottom: 10rpx;
+}
+
+.university-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.compare-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F5F7FA;
+  border-radius: 50%;
+}
+
+.compare-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.university-features {
+  background: #F8F9FA;
+  padding: 20rpx;
+  border-radius: 8rpx;
+  margin-bottom: 20rpx;
+}
+
+.features-text {
+  font-size: 24rpx;
+  color: #5A6C7D;
+  line-height: 1.6;
+}
+
+.university-footer {
+  display: flex;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #E8ECF0;
+}
+
+.footer-item {
+  flex: 1;
+  text-align: center;
+}
+
+.footer-label {
+  display: block;
+  font-size: 22rpx;
+  color: #7F8C8D;
+  margin-bottom: 8rpx;
+}
+
+.footer-value {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #2C3E50;
+}
+
+.score-highlight {
+  color: #4A90E2;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 100rpx 0;
+}
+
+.empty-image {
+  width: 200rpx;
+  height: 200rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: #7F8C8D;
+}
+
+.loading {
+  text-align: center;
+  padding: 40rpx 0;
+  font-size: 26rpx;
+  color: #7F8C8D;
+}
+
+.load-more {
+  text-align: center;
+  padding: 30rpx 0;
+  font-size: 26rpx;
+  color: #4A90E2;
+}

@@ -1,0 +1,274 @@
+.container {
+  padding: 20rpx;
+  background-color: #F5F7FA;
+  min-height: 100vh;
+}
+
+/* 用户信息卡片 */
+.user-info-card {
+  background: linear-gradient(135deg, #667EEA 0%, #4A90E2 100%);
+  color: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15rpx;
+  font-size: 28rpx;
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
+}
+
+.info-label {
+  opacity: 0.9;
+  margin-right: 10rpx;
+}
+
+.info-value {
+  font-weight: 600;
+  font-size: 32rpx;
+}
+
+/* 推荐区域 */
+.recommend-section {
+  margin-bottom: 100rpx;
+}
+
+.section-header {
+  margin-bottom: 20rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #2C3E50;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.section-desc {
+  font-size: 24rpx;
+  color: #95A5A6;
+}
+
+/* 加载状态 */
+.loading-box {
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 80rpx 30rpx;
+  text-align: center;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.loading-icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #95A5A6;
+}
+
+/* 推荐列表 */
+.recommend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.recommend-item {
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+/* 院校卡片 */
+.university-card {
+  padding: 25rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15rpx;
+}
+
+.university-info {
+  flex: 1;
+}
+
+.university-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #2C3E50;
+  margin-bottom: 10rpx;
+}
+
+.university-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.tag {
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+  font-size: 22rpx;
+  background: #F0F0F0;
+  color: #666;
+}
+
+.tag-level {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  color: #FFFFFF;
+}
+
+/* 录取概率徽章 */
+.probability-badge {
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+  white-space: nowrap;
+}
+
+.probability-rush {
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF5252 100%);
+}
+
+.probability-stable {
+  background: linear-gradient(135deg, #51CF66 0%, #37B24D 100%);
+}
+
+.probability-safe {
+  background: linear-gradient(135deg, #4DABF7 0%, #339AF0 100%);
+}
+
+.university-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15rpx;
+}
+
+.meta-item {
+  font-size: 24rpx;
+  color: #7F8C8D;
+}
+
+/* AI推荐理由卡片 */
+.reason-card {
+  padding: 25rpx;
+  background: linear-gradient(135deg, #F8F9FA 0%, #E9ECEF 100%);
+}
+
+.reason-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15rpx;
+}
+
+.reason-icon {
+  font-size: 32rpx;
+  margin-right: 10rpx;
+}
+
+.reason-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #2C3E50;
+}
+
+.reason-content {
+  font-size: 26rpx;
+  color: #5A6C7D;
+  line-height: 1.8;
+  text-align: justify;
+}
+
+.reason-loading {
+  text-align: center;
+  padding: 20rpx 0;
+}
+
+/* 空状态 */
+.empty-state {
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 80rpx 30rpx;
+  text-align: center;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.empty-icon {
+  font-size: 80rpx;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #2C3E50;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.empty-hint {
+  font-size: 24rpx;
+  color: #95A5A6;
+  display: block;
+}
+
+/* 操作按钮 */
+.action-buttons {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 15rpx;
+  padding: 20rpx;
+  background: #FFFFFF;
+  box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 25rpx;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  border: 2rpx solid #E0E0E0;
+  background: #FFFFFF;
+  color: #2C3E50;
+}
+
+.action-btn-primary {
+  background: linear-gradient(135deg, #667EEA 0%, #4A90E2 100%);
+  color: #FFFFFF;
+  border: none;
+}
+
+.btn-icon {
+  font-size: 32rpx;
+}

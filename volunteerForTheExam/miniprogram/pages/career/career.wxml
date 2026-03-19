@@ -1,0 +1,171 @@
+<view class="container">
+  <view class="header-banner card">
+    <view class="banner-title">💼 就业分析</view>
+    <view class="banner-desc">从就业看专业，理性选择未来</view>
+  </view>
+
+  <!-- Tab切换 -->
+  <view class="tabs">
+    <view class="tab {{currentTab === 'career' ? 'active' : ''}}" bindtap="switchTab" data-tab="career">
+      职业分析
+    </view>
+    <view class="tab {{currentTab === 'major' ? 'active' : ''}}" bindtap="switchTab" data-tab="major">
+      专业就业
+    </view>
+  </view>
+
+  <!-- 职业分析Tab -->
+  <view wx:if="{{currentTab === 'career'}}">
+    <view class="search-bar">
+      <view class="search-input-wrapper">
+        <image class="search-icon" src="/images/search-icon.png" mode="aspectFit"></image>
+        <input class="search-input" placeholder="搜索职业或行业" bindinput="onSearchInput" bindconfirm="onSearch" value="{{keyword}}" />
+      </view>
+    </view>
+
+  <view class="section-title">🔥 热门职业</view>
+  <view class="hot-careers">
+    <view class="career-card card" wx:for="{{hotCareers}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
+      <view class="career-header">
+        <view class="career-position">{{item.position}}</view>
+        <view class="demand-badge" style="background: {{item.demandIndex >= 80 ? '#E74C3C' : item.demandIndex >= 60 ? '#F39C12' : '#27AE60'}}">
+          {{item.demandIndex >= 80 ? '热门' : item.demandIndex >= 60 ? '稳定' : '一般'}}
+        </view>
+      </view>
+      <view class="career-industry">{{item.industry}}</view>
+      <view class="career-salary">💰 {{item.salary}}</view>
+      <view class="career-trend">
+        <text class="trend-label">发展趋势：</text>
+        <text class="trend-text">{{item.trend}}</text>
+      </view>
+      <view class="career-footer">
+        <text class="demand-text">需求指数</text>
+        <view class="demand-bar">
+          <view class="demand-fill" style="width: {{item.demandIndex}}%; background: {{item.demandIndex >= 80 ? '#E74C3C' : item.demandIndex >= 60 ? '#F39C12' : '#27AE60'}}"></view>
+        </view>
+        <text class="demand-value">{{item.demandIndex}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-title">📊 行业分类</view>
+  <view class="industry-grid">
+    <view class="industry-item" wx:for="{{industries}}" wx:key="name" bindtap="filterByIndustry" data-industry="{{item.name}}">
+      <view class="industry-icon">{{item.icon}}</view>
+      <view class="industry-name">{{item.name}}</view>
+      <view class="industry-count">{{item.count}}个职位</view>
+    </view>
+  </view>
+
+  <view class="section-title">💡 职业推荐</view>
+  <view class="career-list">
+    <view class="career-list-item card" wx:for="{{careers}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
+      <view class="list-item-header">
+        <view class="position-info">
+          <view class="position-name">{{item.position}}</view>
+          <view class="position-industry">{{item.industry}}</view>
+        </view>
+        <view class="salary-tag">{{item.salary}}</view>
+      </view>
+      <view class="position-desc">{{item.description}}</view>
+      <view class="position-meta">
+        <text class="meta-tag">需求指数: {{item.demandIndex}}</text>
+        <text class="meta-tag">{{item.relatedMajors}}</text>
+      </view>
+    </view>
+
+    <view class="empty-state" wx:if="{{careers.length === 0 && !loading}}">
+      <image class="empty-image" src="/images/empty.png" mode="aspectFit"></image>
+      <text class="empty-text">暂无职业信息</text>
+    </view>
+  </view>
+  </view>
+
+  <!-- 专业就业Tab -->
+  <view wx:if="{{currentTab === 'major'}}">
+    <view class="search-bar">
+      <input class="search-input" placeholder="搜索专业名称" bindinput="onMajorSearchInput" value="{{majorKeyword}}" />
+      <button class="search-btn" bindtap="onMajorSearch">搜索</button>
+    </view>
+
+    <view wx:if="{{majorData}}" class="employment-detail">
+      <view class="major-info-card card">
+        <text class="major-name">{{majorData.name}}</text>
+        <text class="major-category">{{majorData.category}}</text>
+      </view>
+
+      <view class="data-cards">
+        <view class="data-card">
+          <text class="card-value">{{employmentData.employmentRate}}%</text>
+          <text class="card-label">就业率</text>
+        </view>
+        <view class="data-card">
+          <text class="card-value">¥{{employmentData.avgSalary}}</text>
+          <text class="card-label">平均月薪</text>
+        </view>
+        <view class="data-card">
+          <text class="card-value">{{employmentData.matchRate}}%</text>
+          <text class="card-label">专业对口率</text>
+        </view>
+        <view class="data-card">
+          <text class="card-value">{{employmentData.upgradeRate}}%</text>
+          <text class="card-label">深造率</text>
+        </view>
+      </view>
+
+      <view class="section card">
+        <view class="section-title">行业分布</view>
+        <view class="industry-distribution">
+          <view class="industry-item" wx:for="{{industryDistribution}}" wx:key="name">
+            <view class="industry-name">{{item.name}}</view>
+            <view class="industry-bar">
+              <view class="industry-fill" style="width: {{item.percentage}}%"></view>
+            </view>
+            <view class="industry-percentage">{{item.percentage}}%</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="section card">
+        <view class="section-title">对口职业</view>
+        <view class="career-list">
+          <view class="career-item" wx:for="{{majorCareers}}" wx:key="id">
+            <view class="career-header">
+              <text class="career-name">{{item.name}}</text>
+              <text class="match-degree">匹配度 {{item.matchDegree}}%</text>
+            </view>
+            <view class="career-info">
+              <text class="salary-range">{{item.salaryRange}}</text>
+              <text class="employment-rate">就业占比 {{item.employmentPercentage}}%</text>
+            </view>
+            <view class="skills">
+              <text class="skill-tag" wx:for="{{item.skillRequirements}}" wx:key="index" wx:for-item="skill">{{skill}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="section card">
+        <view class="section-title">典型岗位</view>
+        <view class="jobs-list">
+          <text class="job-tag" wx:for="{{employmentData.typicalJobs}}" wx:key="index">{{item}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:else class="empty-state">
+      <text class="empty-text">请搜索专业查看就业分析</text>
+    </view>
+
+    <view class="hot-majors">
+      <view class="section-title">热门专业推荐</view>
+      <scroll-view class="major-scroll" scroll-x>
+        <view class="major-card" wx:for="{{hotMajors}}" wx:key="id" bindtap="onMajorTap" data-id="{{item.id}}">
+          <text class="major-card-name">{{item.name}}</text>
+          <text class="major-card-salary">¥{{item.avgSalary}}</text>
+          <text class="major-card-rate">就业率 {{item.employmentRate}}%</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

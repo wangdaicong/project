@@ -1,0 +1,98 @@
+.career-header {
+  text-align: center;
+  margin-bottom: 20rpx;
+}
+
+.position-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #2C3E50;
+  margin-bottom: 16rpx;
+}
+
+.industry-tag {
+  display: inline-block;
+  background: #E8F4FD;
+  color: #4A90E2;
+  padding: 8rpx 24rpx;
+  border-radius: 30rpx;
+  font-size: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.salary-display {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #27AE60;
+}
+
+.stats-card {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20rpx;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.stat-icon {
+  font-size: 48rpx;
+}
+
+.stat-info {
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #4A90E2;
+  margin-bottom: 6rpx;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: #7F8C8D;
+}
+
+.stat-divider {
+  width: 1rpx;
+  background: #E8ECF0;
+}
+
+.section {
+  margin-bottom: 20rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #2C3E50;
+  margin-bottom: 20rpx;
+}
+
+.section-content {
+  font-size: 28rpx;
+  color: #5A6C7D;
+  line-height: 1.8;
+  text-align: justify;
+}
+
+.major-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.major-tag {
+  background: linear-gradient(135deg, #F8F9FA 0%, #E8F4FD 100%);
+  color: #4A90E2;
+  padding: 12rpx 24rpx;
+  border-radius: 30rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+}

@@ -1,0 +1,109 @@
+<view class="container">
+  <view class="header">
+    <text class="title">专业就业分析</text>
+    <text class="subtitle">从就业看专业，理性选择未来</text>
+  </view>
+
+  <view class="search-box">
+    <input class="search-input" placeholder="搜索专业名称" bindinput="onSearchInput" value="{{searchKeyword}}" />
+    <button class="search-btn" bindtap="onSearch">搜索</button>
+  </view>
+
+  <view wx:if="{{majorData}}" class="employment-detail">
+    <view class="major-info">
+      <text class="major-name">{{majorData.name}}</text>
+      <text class="major-category">{{majorData.category}}</text>
+    </view>
+
+    <view class="data-cards">
+      <view class="data-card">
+        <text class="card-value">{{employmentData.employmentRate}}%</text>
+        <text class="card-label">就业率</text>
+      </view>
+      <view class="data-card">
+        <text class="card-value">¥{{employmentData.avgSalary}}</text>
+        <text class="card-label">平均月薪</text>
+      </view>
+      <view class="data-card">
+        <text class="card-value">{{employmentData.matchRate}}%</text>
+        <text class="card-label">专业对口率</text>
+      </view>
+      <view class="data-card">
+        <text class="card-value">{{employmentData.upgradeRate}}%</text>
+        <text class="card-label">深造率</text>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-title">
+        <text class="title-text">行业分布</text>
+      </view>
+      <view class="industry-distribution">
+        <view class="industry-item" wx:for="{{industryDistribution}}" wx:key="name">
+          <view class="industry-name">{{item.name}}</view>
+          <view class="industry-bar">
+            <view class="industry-fill" style="width: {{item.percentage}}%"></view>
+          </view>
+          <view class="industry-percentage">{{item.percentage}}%</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-title">
+        <text class="title-text">对口职业</text>
+      </view>
+      <view class="career-list">
+        <view class="career-item" wx:for="{{careers}}" wx:key="id" bindtap="onCareerTap" data-id="{{item.id}}">
+          <view class="career-header">
+            <text class="career-name">{{item.name}}</text>
+            <text class="match-degree">匹配度 {{item.matchDegree}}%</text>
+          </view>
+          <view class="career-info">
+            <text class="salary-range">{{item.salaryRange}}</text>
+            <text class="employment-rate">就业占比 {{item.employmentPercentage}}%</text>
+          </view>
+          <view class="skills">
+            <text class="skill-tag" wx:for="{{item.skillRequirements}}" wx:key="index" wx:for-item="skill">{{skill}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-title">
+        <text class="title-text">学历要求</text>
+      </view>
+      <view class="education-info">
+        <text class="education-text">{{employmentData.educationRequirement}}</text>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-title">
+        <text class="title-text">典型岗位</text>
+      </view>
+      <view class="jobs-list">
+        <text class="job-tag" wx:for="{{employmentData.typicalJobs}}" wx:key="index">{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:else class="empty-state">
+    <image class="empty-icon" src="/images/empty.png" mode="aspectFit"></image>
+    <text class="empty-text">请搜索专业查看就业分析</text>
+  </view>
+
+  <view class="hot-majors">
+    <view class="section-title">
+      <text class="title-text">热门专业推荐</text>
+    </view>
+    <scroll-view class="major-scroll" scroll-x>
+      <view class="major-card" wx:for="{{hotMajors}}" wx:key="id" bindtap="onMajorTap" data-id="{{item.id}}">
+        <text class="major-card-name">{{item.name}}</text>
+        <text class="major-card-salary">¥{{item.avgSalary}}</text>
+        <text class="major-card-rate">就业率 {{item.employmentRate}}%</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>

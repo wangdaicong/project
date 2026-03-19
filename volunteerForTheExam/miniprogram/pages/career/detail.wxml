@@ -1,0 +1,52 @@
+<view class="container">
+  <view class="career-header card">
+    <view class="position-title">{{career.position}}</view>
+    <view class="industry-tag">{{career.industry}}</view>
+    <view class="salary-display">💰 {{career.salary}}</view>
+  </view>
+
+  <view class="stats-card card">
+    <view class="stat-item">
+      <view class="stat-icon">📈</view>
+      <view class="stat-info">
+        <view class="stat-value">{{career.demandIndex}}</view>
+        <view class="stat-label">需求指数</view>
+      </view>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <view class="stat-icon">🎯</view>
+      <view class="stat-info">
+        <view class="stat-value">{{career.trend ? '良好' : '稳定'}}</view>
+        <view class="stat-label">发展前景</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">📖 职位描述</view>
+    <view class="section-content">{{career.description || '暂无描述'}}</view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">📈 发展趋势</view>
+    <view class="section-content">{{career.trend || '暂无趋势分析'}}</view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">✅ 任职要求</view>
+    <view class="section-content">{{career.requirements || '暂无要求信息'}}</view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">🎓 相关专业</view>
+    <view class="major-tags">
+      <text class="major-tag" wx:for="{{relatedMajors}}" wx:key="*this">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">🚀 发展路径</view>
+    <view class="section-content">{{career.developmentPath || '暂无发展路径信息'}}</view>
+  </view>
+</view>

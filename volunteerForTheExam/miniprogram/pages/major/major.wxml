@@ -1,0 +1,70 @@
+<view class="container">
+  <!-- 顶部搜索 -->
+  <view class="search-box">
+    <input class="search-input" placeholder="搜索专业名称" bindinput="onSearchInput" value="{{keyword}}" />
+    <button class="search-btn" bindtap="onSearch">搜索</button>
+  </view>
+
+  <!-- 专业分类 -->
+  <view class="section-title">📚 专业分类</view>
+  <scroll-view class="category-scroll" scroll-x>
+    <view class="category-item {{selectedCategory === '' ? 'active' : ''}}" bindtap="onCategoryTap" data-category="">
+      全部
+    </view>
+    <view class="category-item {{selectedCategory === item ? 'active' : ''}}" 
+          wx:for="{{categories}}" 
+          wx:key="index" 
+          bindtap="onCategoryTap" 
+          data-category="{{item}}">
+      {{item}}
+    </view>
+  </scroll-view>
+
+  <!-- 热门专业 -->
+  <view class="section-title">🔥 热门专业</view>
+  <view class="major-list">
+    <view class="major-card" wx:for="{{majors}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
+      <view class="major-header">
+        <view class="major-name">{{item.name}}</view>
+        <view class="major-category">{{item.category}}</view>
+      </view>
+      <view class="major-info">
+        <view class="info-item">
+          <text class="info-label">学历层次：</text>
+          <text class="info-value">{{item.degree}}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">就业率：</text>
+          <text class="info-value highlight">{{item.employmentRate}}%</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">平均薪资：</text>
+          <text class="info-value salary">¥{{item.avgSalary}}</text>
+        </view>
+      </view>
+      <view class="major-tags">
+        <text class="tag" wx:for="{{item.tags}}" wx:key="index" wx:for-item="tag">{{tag}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 就业分析入口 -->
+  <view class="section-title">💼 就业分析工具</view>
+  <view class="tool-cards">
+    <view class="tool-card" bindtap="goToEmployment">
+      <view class="tool-icon">📊</view>
+      <view class="tool-name">专业就业分析</view>
+      <view class="tool-desc">就业率、薪资对比</view>
+    </view>
+    <view class="tool-card" bindtap="goToIndustry">
+      <view class="tool-icon">🏢</view>
+      <view class="tool-name">行业分析</view>
+      <view class="tool-desc">行业趋势、职业规划</view>
+    </view>
+    <view class="tool-card" bindtap="goToCityEmployment">
+      <view class="tool-icon">🌆</view>
+      <view class="tool-name">城市就业</view>
+      <view class="tool-desc">各城市就业对比</view>
+    </view>
+  </view>
+</view>

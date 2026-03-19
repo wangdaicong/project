@@ -1,0 +1,103 @@
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input-wrapper">
+      <image class="search-icon" src="/images/search-icon.png" mode="aspectFit"></image>
+      <input class="search-input" placeholder="搜索院校名称" bindinput="onSearchInput" bindconfirm="onSearch" value="{{keyword}}" />
+    </view>
+    <button class="filter-btn" bindtap="toggleFilter">筛选</button>
+  </view>
+
+  <!-- 筛选面板 -->
+  <view class="filter-panel" wx:if="{{showFilter}}">
+    <view class="filter-item">
+      <view class="filter-label">省份</view>
+      <picker mode="region" bindchange="onProvinceFilterChange" value="{{filterProvince}}">
+        <view class="filter-value">{{filterProvince[0] || '全部'}}</view>
+      </picker>
+    </view>
+    
+    <view class="filter-item">
+      <view class="filter-label">层次</view>
+      <picker bindchange="onLevelChange" value="{{levelIndex}}" range="{{levels}}">
+        <view class="filter-value">{{levels[levelIndex]}}</view>
+      </picker>
+    </view>
+
+    <view class="filter-item">
+      <view class="filter-label">类型</view>
+      <picker bindchange="onTypeChange" value="{{typeIndex}}" range="{{types}}">
+        <view class="filter-value">{{types[typeIndex]}}</view>
+      </picker>
+    </view>
+
+    <view class="filter-item">
+      <view class="filter-label">分数范围</view>
+      <view class="score-range">
+        <input class="score-input-small" type="number" placeholder="最低分" bindinput="onMinScoreInput" value="{{minScore}}" />
+        <text class="score-separator">-</text>
+        <input class="score-input-small" type="number" placeholder="最高分" bindinput="onMaxScoreInput" value="{{maxScore}}" />
+      </view>
+    </view>
+
+    <view class="filter-actions">
+      <button class="btn-secondary" bindtap="resetFilter">重置</button>
+      <button class="btn-primary" bindtap="applyFilter">应用</button>
+    </view>
+  </view>
+
+  <!-- 推荐标签 -->
+  <view class="recommend-banner" wx:if="{{isRecommend}}">
+    <text class="recommend-icon">⭐</text>
+    <text class="recommend-text">根据您的分数 {{userScore}} 分为您推荐</text>
+  </view>
+
+  <!-- 院校列表 -->
+  <view class="university-list">
+    <view class="university-card card" wx:for="{{universities}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
+      <view class="university-header">
+        <image class="university-logo" src="{{item.logoUrl || '/images/default-logo.png'}}" mode="aspectFill"></image>
+        <view class="university-info">
+          <view class="university-name">{{item.name}}</view>
+          <view class="university-location">📍 {{item.province}} · {{item.city}}</view>
+          <view class="university-tags">
+            <text class="tag tag-success" wx:if="{{item.level}}">{{item.level}}</text>
+            <text class="tag">{{item.type}}</text>
+          </view>
+        </view>
+        <view class="compare-btn" catchtap="addToCompare" data-item="{{item}}">
+          <image class="compare-icon" src="/images/compare-icon.png" mode="aspectFit"></image>
+        </view>
+      </view>
+      
+      <view class="university-features" wx:if="{{item.features}}">
+        <text class="features-text">{{item.features}}</text>
+      </view>
+
+      <view class="university-footer">
+        <view class="footer-item">
+          <text class="footer-label">排名</text>
+          <text class="footer-value">{{item.ranking || '-'}}</text>
+        </view>
+        <view class="footer-item">
+          <text class="footer-label">录取分数</text>
+          <text class="footer-value score-highlight">{{item.minScore}}-{{item.maxScore}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-state" wx:if="{{universities.length === 0 && !loading}}">
+      <image class="empty-image" src="/images/empty.png" mode="aspectFit"></image>
+      <text class="empty-text">暂无数据</text>
+    </view>
+
+    <view class="loading" wx:if="{{loading}}">
+      <text>加载中...</text>
+    </view>
+  </view>
+
+  <!-- 加载更多 -->
+  <view class="load-more" wx:if="{{hasMore && !loading}}" bindtap="loadMore">
+    <text>加载更多</text>
+  </view>
+</view>

@@ -1,0 +1,100 @@
+<view class="container">
+  <!-- 顶部搜索 -->
+  <view class="search-box">
+    <input class="search-input" placeholder="搜索院校名称" bindinput="onSearchInput" value="{{keyword}}" />
+    <button class="search-btn" bindtap="onSearch">搜索</button>
+  </view>
+
+  <!-- 筛选条件 -->
+  <view class="filter-bar">
+    <view class="filter-item" bindtap="toggleFilter">
+      <text>筛选</text>
+      <text class="arrow">{{showFilter ? '▲' : '▼'}}</text>
+    </view>
+  </view>
+
+  <!-- 筛选面板 -->
+  <view class="filter-panel" wx:if="{{showFilter}}">
+    <view class="filter-grid">
+      <view class="filter-item-wrapper">
+        <text class="filter-label">院校分类</text>
+        <picker mode="selector" range="{{levels}}" value="{{levelIndex}}" bindchange="onLevelChange">
+          <view class="picker">{{levels[levelIndex]}}</view>
+        </picker>
+      </view>
+      <view class="filter-item-wrapper">
+        <text class="filter-label">院校类型</text>
+        <picker mode="selector" range="{{types}}" value="{{typeIndex}}" bindchange="onTypeChange">
+          <view class="picker">{{types[typeIndex]}}</view>
+        </picker>
+      </view>
+      <view class="filter-item-wrapper">
+        <text class="filter-label">所在省份</text>
+        <picker mode="selector" range="{{provinces}}" value="{{provinceIndex}}" bindchange="onProvinceChange">
+          <view class="picker">{{provinces[provinceIndex]}}</view>
+        </picker>
+      </view>
+    </view>
+    <view class="filter-actions">
+      <button class="filter-btn reset-btn" bindtap="onResetFilter">重置</button>
+      <button class="filter-btn query-btn" bindtap="onApplyFilter">查询</button>
+    </view>
+  </view>
+
+  <!-- 网络提示 -->
+  <view class="network-tip" wx:if="{{networkError}}">
+    <text class="tip-icon">ℹ️</text>
+    <text class="tip-text">当前显示示例数据，实际数据请启动后端服务</text>
+  </view>
+
+  <!-- 院校列表 -->
+  <view class="university-list">
+    <view class="university-card" wx:for="{{universities}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
+      <view class="card-main">
+        <view class="university-header">
+          <view class="university-name-section">
+            <view class="university-name">{{item.name}}</view>
+            <view class="university-level">{{item.level}}</view>
+          </view>
+        </view>
+        
+        <view class="university-info">
+          <view class="info-row">
+            <text class="info-icon">📍</text>
+            <text class="info-text">{{item.province}} · {{item.city}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-icon">🎓</text>
+            <text class="info-text">{{item.type}}</text>
+          </view>
+          <view class="info-row" wx:if="{{item.introduction}}">
+            <text class="info-icon">📝</text>
+            <text class="info-text intro-text">{{item.introduction}}</text>
+          </view>
+        </view>
+      </view>
+      
+      <view class="card-side">
+        <view class="university-ranking" wx:if="{{item.ranking}}">
+          <text class="ranking-value">{{item.ranking}}</text>
+          <text class="ranking-label">全国排名</text>
+        </view>
+        <view class="score-info" wx:if="{{item.minScore}}">
+          <text class="score-value">{{item.minScore}}</text>
+          <text class="score-label">最低分</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 升学规划入口 -->
+  <view class="section-title">🎯 升学规划</view>
+  <view class="plan-card" bindtap="goToEnrollment">
+    <view class="plan-icon">📚</view>
+    <view class="plan-content">
+      <view class="plan-title">多元升学规划</view>
+      <view class="plan-desc">强基计划、综合评价、专升本等多种升学路径</view>
+    </view>
+    <view class="plan-arrow">→</view>
+  </view>
+</view>

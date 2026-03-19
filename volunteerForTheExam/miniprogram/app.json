@@ -1,0 +1,53 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/recommend/recommend",
+    "pages/university/university",
+    "pages/major/major",
+    "pages/mine/mine",
+    "pages/search/search",
+    "pages/university/detail",
+    "pages/major/detail",
+    "pages/career/career",
+    "pages/career/detail",
+    "pages/compare/compare",
+    "pages/employment/employment",
+    "pages/industry/industry",
+    "pages/enrollment/enrollment",
+    "pages/city-employment/city-employment",
+    "pages/test/test"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#4A90E2",
+    "navigationBarTitleText": "高考志愿填报指南",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F7FA"
+  },
+  "tabBar": {
+    "color": "#7A7E83",
+    "selectedColor": "#4A90E2",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/university/university",
+        "text": "院校"
+      },
+      {
+        "pagePath": "pages/major/major",
+        "text": "专业"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

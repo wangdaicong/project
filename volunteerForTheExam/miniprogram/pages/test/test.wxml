@@ -1,0 +1,13 @@
+<view style="padding: 40rpx; background-color: #f0f0f0; min-height: 100vh;">
+  <view style="background-color: #fff; padding: 40rpx; border-radius: 20rpx; margin-bottom: 30rpx;">
+    <text style="display: block; font-size: 40rpx; color: #333; margin-bottom: 20rpx; font-weight: bold;">✅ 测试页面</text>
+    <text style="display: block; font-size: 28rpx; color: #666; line-height: 1.6;">如果你能看到这段文字，说明小程序基本功能正常</text>
+  </view>
+  
+  <view style="background-color: #4A90E2; padding: 40rpx; border-radius: 20rpx; color: #fff;">
+    <text style="display: block; font-size: 32rpx; margin-bottom: 15rpx;">🎯 诊断信息</text>
+    <text style="display: block; font-size: 24rpx; margin-bottom: 10rpx;">页面渲染：正常</text>
+    <text style="display: block; font-size: 24rpx; margin-bottom: 10rpx;">样式加载：正常</text>
+    <text style="display: block; font-size: 24rpx;">数据绑定：{{message}}</text>
+  </view>
+</view>

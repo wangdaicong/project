@@ -1,0 +1,86 @@
+<view class="container">
+  <!-- 用户信息卡片 -->
+  <view class="user-card">
+    <view class="user-avatar">👤</view>
+    <view class="user-info">
+      <view class="user-name">{{hasScore ? '考生' : '未设置'}}</view>
+      <view class="user-score" wx:if="{{hasScore}}">
+        {{userScore}}分 · {{userProvince}}
+      </view>
+      <view class="user-tip" wx:else>
+        <text bindtap="goToHome">点击设置分数</text>
+      </view>
+    </view>
+    <view class="edit-btn" bindtap="goToHome">
+      <text>✏️</text>
+    </view>
+  </view>
+
+  <!-- 功能菜单 -->
+  <view class="section-title">📋 我的工具</view>
+  <view class="menu-list">
+    <view class="menu-item" bindtap="goToCompare">
+      <view class="menu-icon" style="background: linear-gradient(135deg, #43E97B 0%, #38F9D7 100%);">📊</view>
+      <view class="menu-content">
+        <view class="menu-name">院校对比</view>
+        <view class="menu-desc">已添加 {{compareCount}} 所院校</view>
+      </view>
+      <view class="menu-arrow">→</view>
+    </view>
+
+    <view class="menu-item" bindtap="goToFavorite">
+      <view class="menu-icon" style="background: linear-gradient(135deg, #FA709A 0%, #FEE140 100%);">⭐</view>
+      <view class="menu-content">
+        <view class="menu-name">我的收藏</view>
+        <view class="menu-desc">收藏的院校和专业</view>
+      </view>
+      <view class="menu-arrow">→</view>
+    </view>
+
+    <view class="menu-item" bindtap="goToHistory">
+      <view class="menu-icon" style="background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);">🕒</view>
+      <view class="menu-content">
+        <view class="menu-name">浏览历史</view>
+        <view class="menu-desc">查看历史记录</view>
+      </view>
+      <view class="menu-arrow">→</view>
+    </view>
+  </view>
+
+  <!-- 数据分析 -->
+  <view class="section-title">📈 数据统计</view>
+  <view class="stats-grid">
+    <view class="stat-item">
+      <view class="stat-value">{{viewCount}}</view>
+      <view class="stat-label">浏览次数</view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-value">{{favoriteCount}}</view>
+      <view class="stat-label">收藏数量</view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-value">{{compareCount}}</view>
+      <view class="stat-label">对比院校</view>
+    </view>
+  </view>
+
+  <!-- 其他功能 -->
+  <view class="section-title">⚙️ 更多功能</view>
+  <view class="menu-list">
+    <view class="menu-item" bindtap="goToAbout">
+      <view class="menu-icon simple">ℹ️</view>
+      <view class="menu-content">
+        <view class="menu-name">关于我们</view>
+      </view>
+      <view class="menu-arrow">→</view>
+    </view>
+
+    <view class="menu-item" bindtap="goToFeedback">
+      <view class="menu-icon simple">💬</view>
+      <view class="menu-content">
+        <view class="menu-name">意见反馈</view>
+      </view>
+      <view class="menu-arrow">→</view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,154 @@
+<view class="container">
+  <!-- 顶部欢迎卡片 -->
+  <view class="welcome-card card">
+    <view class="welcome-title">🎓 高考志愿填报助手</view>
+    <view class="welcome-desc">科学选择，成就未来</view>
+    
+    <view class="score-input-box" wx:if="{{!hasScore}}">
+      <view class="input-label">请输入您的高考成绩</view>
+      <view class="input-row">
+        <view class="input-wrapper">
+          <input class="score-input" type="number" placeholder="请输入分数" bindinput="onScoreInput" value="{{inputScore}}" />
+          <view class="clear-btn" wx:if="{{inputScore}}" bindtap="clearScore">✕</view>
+        </view>
+        <picker mode="selector" range="{{provinces}}" bindchange="onProvinceChange" value="{{provinceIndex}}">
+          <view class="province-picker">{{selectedProvince || '全国'}}</view>
+        </picker>
+      </view>
+      <button class="query-btn" bindtap="saveUserInfo">智能推荐</button>
+    </view>
+
+    <view class="score-display" wx:else>
+      <view class="score-item">
+        <text class="score-label">您的分数：</text>
+        <text class="score-value">{{userScore}}</text>
+      </view>
+      <view class="score-item">
+        <text class="score-label">所在地区：</text>
+        <text class="score-value">{{userProvince}}</text>
+      </view>
+      <text class="change-btn" bindtap="changeScore">修改信息</text>
+    </view>
+  </view>
+
+  <!-- 快捷功能 -->
+  <view class="section-title">🚀 快捷功能</view>
+  <view class="action-grid">
+    <view class="action-item" bindtap="goToSearch">
+      <view class="action-icon" style="background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);">🔍</view>
+      <view class="action-title">院校查询</view>
+      <view class="action-desc">查找心仪院校</view>
+    </view>
+    <view class="action-item" bindtap="goToCareer">
+      <view class="action-icon" style="background: linear-gradient(135deg, #4FACFE 0%, #00F2FE 100%);">💼</view>
+      <view class="action-title">就业分析</view>
+      <view class="action-desc">了解就业前景</view>
+    </view>
+    <view class="action-item" bindtap="goToCompare">
+      <view class="action-icon" style="background: linear-gradient(135deg, #43E97B 0%, #38F9D7 100%);">📊</view>
+      <view class="action-title">院校对比</view>
+      <view class="action-desc">多维度对比</view>
+    </view>
+    <view class="action-item" bindtap="goToIndustry">
+      <view class="action-icon" style="background: linear-gradient(135deg, #F093FB 0%, #F5576C 100%);">🏢</view>
+      <view class="action-title">行业趋势</view>
+      <view class="action-desc">行业发展分析</view>
+    </view>
+    <view class="action-item" bindtap="goToEnrollment">
+      <view class="action-icon" style="background: linear-gradient(135deg, #FFA751 0%, #FFE259 100%);">🎓</view>
+      <view class="action-title">升学规划</view>
+      <view class="action-desc">多元升学路径</view>
+    </view>
+    <view class="action-item" bindtap="goToCityEmployment">
+      <view class="action-icon" style="background: linear-gradient(135deg, #4FACFE 0%, #00F2FE 100%);">🌆</view>
+      <view class="action-title">城市对比</view>
+      <view class="action-desc">城市就业分析</view>
+    </view>
+  </view>
+
+  <!-- 热门院校推荐 -->
+  <view class="section-title">🔥 热门院校</view>
+  
+  <!-- 985院校 -->
+  <view class="category-header" wx:if="{{hotUniversities985.length > 0}}">
+    <text class="category-label">985工程</text>
+    <text class="category-desc">顶尖名校</text>
+  </view>
+  <view class="university-list">
+    <view class="university-item card" wx:for="{{hotUniversities985}}" wx:key="id" bindtap="goToUniversityDetail" data-id="{{item.id}}">
+      <view class="university-header">
+        <view class="university-info">
+          <view class="university-name">{{item.name}}</view>
+          <view class="university-tags">
+            <text class="tag tag-success" wx:if="{{item.level}}">{{item.level}}</text>
+            <text class="tag">{{item.type}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="university-meta">
+        <text class="meta-item">📍 {{item.city}}</text>
+        <text class="meta-item">📈 排名 {{item.ranking || 'null'}}</text>
+        <text class="meta-item" wx:if="{{item.minScore}}">📊 {{item.minScore}}-{{item.maxScore}}分</text>
+        <text class="meta-item" wx:else>📊 null-null分</text>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 211院校 -->
+  <view class="category-header" wx:if="{{hotUniversities211.length > 0}}">
+    <text class="category-label">211工程</text>
+    <text class="category-desc">重点大学</text>
+  </view>
+  <view class="university-list">
+    <view class="university-item card" wx:for="{{hotUniversities211}}" wx:key="id" bindtap="goToUniversityDetail" data-id="{{item.id}}">
+      <view class="university-header">
+        <view class="university-info">
+          <view class="university-name">{{item.name}}</view>
+          <view class="university-tags">
+            <text class="tag tag-success" wx:if="{{item.level}}">{{item.level}}</text>
+            <text class="tag">{{item.type}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="university-meta">
+        <text class="meta-item">📍 {{item.city}}</text>
+        <text class="meta-item">📈 排名 {{item.ranking || 'null'}}</text>
+        <text class="meta-item" wx:if="{{item.minScore}}">📊 {{item.minScore}}-{{item.maxScore}}分</text>
+        <text class="meta-item" wx:else>📊 null-null分</text>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 专科院校 -->
+  <view class="category-header" wx:if="{{hotUniversitiesVocational.length > 0}}">
+    <text class="category-label">优质高职</text>
+    <text class="category-desc">专科院校</text>
+  </view>
+  <view class="university-list">
+    <view class="university-item card" wx:for="{{hotUniversitiesVocational}}" wx:key="id" bindtap="goToUniversityDetail" data-id="{{item.id}}">
+      <view class="university-header">
+        <view class="university-info">
+          <view class="university-name">{{item.name}}</view>
+          <view class="university-tags">
+            <text class="tag tag-success" wx:if="{{item.level}}">{{item.level}}</text>
+            <text class="tag">{{item.type}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="university-meta">
+        <text class="meta-item">📍 {{item.city}}</text>
+        <text class="meta-item" wx:if="{{item.minScore}}">📊 {{item.minScore}}-{{item.maxScore}}分</text>
+        <text class="meta-item" wx:else>📊 暂无分数线</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 专业类别 -->
+  <view class="section-title">📚 热门专业类别</view>
+  <view class="category-grid">
+    <view class="category-item" wx:for="{{categories}}" wx:key="name" bindtap="searchByCategory" data-category="{{item.name}}">
+      <view class="category-icon">{{item.icon}}</view>
+      <view class="category-name">{{item.name}}</view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,179 @@
+<view class="container">
+  <view class="header">
+    <text class="title">城市就业对比</text>
+    <text class="subtitle">选择适合你的发展城市</text>
+  </view>
+
+  <view class="filter-section">
+    <view class="filter-title">城市等级筛选</view>
+    <scroll-view class="tier-scroll" scroll-x>
+      <view class="tier-btn {{selectedTier === '' ? 'active' : ''}}" bindtap="onTierSelect" data-tier="">
+        <text>全部</text>
+      </view>
+      <view class="tier-btn {{selectedTier === '一线' ? 'active' : ''}}" bindtap="onTierSelect" data-tier="一线">
+        <text>一线城市</text>
+      </view>
+      <view class="tier-btn {{selectedTier === '新一线' ? 'active' : ''}}" bindtap="onTierSelect" data-tier="新一线">
+        <text>新一线</text>
+      </view>
+      <view class="tier-btn {{selectedTier === '二线' ? 'active' : ''}}" bindtap="onTierSelect" data-tier="二线">
+        <text>二线城市</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="cities-grid">
+    <view class="city-card" wx:for="{{cities}}" wx:key="id" bindtap="onCityTap" data-id="{{item.id}}">
+      <view class="city-header">
+        <text class="city-name">{{item.city}}</text>
+        <view class="tier-badge tier-{{item.tier}}">
+          <text>{{item.tier}}</text>
+        </view>
+      </view>
+
+      <view class="city-stats">
+        <view class="stat-row">
+          <text class="stat-icon">💰</text>
+          <view class="stat-content">
+            <text class="stat-label">平均薪资</text>
+            <text class="stat-value">¥{{item.avgSalary}}</text>
+          </view>
+        </view>
+
+        <view class="stat-row">
+          <text class="stat-icon">💼</text>
+          <view class="stat-content">
+            <text class="stat-label">岗位数量</text>
+            <text class="stat-value">{{item.jobCount}}</text>
+          </view>
+        </view>
+
+        <view class="stat-row">
+          <text class="stat-icon">🏠</text>
+          <view class="stat-content">
+            <text class="stat-label">生活成本</text>
+            <text class="stat-value">¥{{item.livingCost}}</text>
+          </view>
+        </view>
+
+        <view class="stat-row">
+          <text class="stat-icon">📈</text>
+          <view class="stat-content">
+            <text class="stat-label">发展潜力</text>
+            <text class="stat-value potential-{{item.developmentPotential}}">{{item.developmentPotential}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="hot-industries-section">
+        <text class="section-label">热门行业</text>
+        <view class="industries-tags">
+          <text class="industry-tag" wx:for="{{item.hotIndustriesArray}}" wx:key="index" wx:for-item="industry">{{industry}}</text>
+        </view>
+      </view>
+
+      <view class="compare-checkbox">
+        <checkbox-group bindchange="onCompareChange" data-city="{{item}}">
+          <label>
+            <checkbox value="{{item.id}}" checked="{{item.selected}}" />
+            <text>加入对比</text>
+          </label>
+        </checkbox-group>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{selectedCities.length > 0}}" class="compare-bar">
+    <view class="compare-info">
+      <text>已选择 {{selectedCities.length}} 个城市</text>
+    </view>
+    <button class="compare-btn" bindtap="showComparison" disabled="{{selectedCities.length < 2}}">
+      开始对比
+    </button>
+  </view>
+
+  <view wx:if="{{showCompareModal}}" class="compare-modal" bindtap="closeComparison">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">城市对比</text>
+        <text class="close-btn" bindtap="closeComparison">✕</text>
+      </view>
+
+      <scroll-view class="modal-body" scroll-y>
+        <view class="comparison-table">
+          <view class="table-row header-row">
+            <view class="table-cell">对比项</view>
+            <view class="table-cell" wx:for="{{selectedCities}}" wx:key="id">{{item.city}}</view>
+          </view>
+
+          <view class="table-row">
+            <view class="table-cell label-cell">城市等级</view>
+            <view class="table-cell" wx:for="{{selectedCities}}" wx:key="id">
+              <view class="tier-badge tier-{{item.tier}}">{{item.tier}}</view>
+            </view>
+          </view>
+
+          <view class="table-row">
+            <view class="table-cell label-cell">平均薪资</view>
+            <view class="table-cell" wx:for="{{selectedCities}}" wx:key="id">
+              <text class="value-text">¥{{item.avgSalary}}</text>
+            </view>
+          </view>
+
+          <view class="table-row">
+            <view class="table-cell label-cell">岗位数量</view>
+            <view class="table-cell" wx:for="{{selectedCities}}" wx:key="id">
+              <text class="value-text">{{item.jobCount}}</text>
+            </view>
+          </view>
+
+          <view class="table-row">
+            <view class="table-cell label-cell">生活成本</view>
+            <view class="table-cell" wx:for="{{selectedCities}}" wx:key="id">
+              <text class="value-text">¥{{item.livingCost}}</text>
+            </view>
+          </view>
+
+          <view class="table-row">
+            <view class="table-cell label-cell">发展潜力</view>
+            <view class="table-cell" wx:for="{{selectedCities}}" wx:key="id">
+              <text class="value-text potential-{{item.developmentPotential}}">{{item.developmentPotential}}</text>
+            </view>
+          </view>
+
+          <view class="table-row">
+            <view class="table-cell label-cell">性价比</view>
+            <view class="table-cell" wx:for="{{selectedCities}}" wx:key="id">
+              <text class="value-text">{{calculateCostPerformance(item)}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="chart-section">
+          <text class="chart-title">薪资与成本对比</text>
+          <view class="compare-bars">
+            <view class="compare-bar-item" wx:for="{{selectedCities}}" wx:key="id">
+              <view class="city-name-label">{{item.city}}</view>
+              <view class="bar-group">
+                <view class="bar-row">
+                  <text class="bar-label">薪资</text>
+                  <view class="bar-bg">
+                    <view class="bar-fill salary" style="width: {{item.avgSalary / 200}}%"></view>
+                  </view>
+                  <text class="bar-value">¥{{item.avgSalary}}</text>
+                </view>
+                <view class="bar-row">
+                  <text class="bar-label">成本</text>
+                  <view class="bar-bg">
+                    <view class="bar-fill cost" style="width: {{item.livingCost / 200}}%"></view>
+                  </view>
+                  <text class="bar-value">¥{{item.livingCost}}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

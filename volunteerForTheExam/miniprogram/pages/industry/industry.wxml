@@ -1,0 +1,132 @@
+<view class="container">
+  <view class="header">
+    <text class="title">行业职业分析</text>
+    <text class="subtitle">了解行业趋势，把握职业方向</text>
+  </view>
+
+  <view class="tabs">
+    <view class="tab {{activeTab === 'industry' ? 'active' : ''}}" bindtap="switchTab" data-tab="industry">
+      <text>行业分析</text>
+    </view>
+    <view class="tab {{activeTab === 'career' ? 'active' : ''}}" bindtap="switchTab" data-tab="career">
+      <text>职业分析</text>
+    </view>
+  </view>
+
+  <view wx:if="{{activeTab === 'industry'}}">
+    <view class="industry-list">
+      <view class="industry-item" wx:for="{{industries}}" wx:key="id" bindtap="onIndustryTap" data-id="{{item.id}}">
+        <view class="industry-header">
+          <view class="industry-name-box">
+            <text class="industry-name">{{item.name}}</text>
+            <text class="industry-category">{{item.category}}</text>
+          </view>
+          <view class="trend-badge trend-{{item.trend}}">
+            <text>{{item.trend === '上升' ? '📈' : item.trend === '稳定' ? '➡️' : '📉'}} {{item.trend}}</text>
+          </view>
+        </view>
+        
+        <view class="industry-stats">
+          <view class="stat-item">
+            <text class="stat-label">平均薪资</text>
+            <text class="stat-value">¥{{item.avgSalary}}</text>
+          </view>
+          <view class="stat-item">
+            <text class="stat-label">增长率</text>
+            <text class="stat-value">{{item.growthRate}}%</text>
+          </view>
+          <view class="stat-item">
+            <text class="stat-label">岗位数</text>
+            <text class="stat-value">{{item.jobCount}}</text>
+          </view>
+        </view>
+
+        <view class="industry-desc">
+          <text>{{item.description}}</text>
+        </view>
+
+        <view class="hot-cities">
+          <text class="cities-label">热门城市：</text>
+          <text class="city-tag" wx:for="{{item.hotCitiesArray}}" wx:key="index" wx:for-item="city">{{city}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{activeTab === 'career'}}">
+    <view class="filter-bar">
+      <picker mode="selector" range="{{industries}}" range-key="name" bindchange="onIndustryFilter">
+        <view class="filter-btn">
+          <text>{{selectedIndustry ? selectedIndustry.name : '选择行业'}}</text>
+          <text class="arrow">▼</text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="career-list">
+      <view class="career-card" wx:for="{{careers}}" wx:key="id" bindtap="onCareerTap" data-id="{{item.id}}">
+        <view class="career-header">
+          <text class="career-name">{{item.name}}</text>
+          <text class="career-salary">¥{{item.avgSalary}}</text>
+        </view>
+
+        <view class="career-info">
+          <view class="info-row">
+            <text class="info-label">薪资范围：</text>
+            <text class="info-value">{{item.salaryRange}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">学历要求：</text>
+            <text class="info-value">{{item.educationRequirement}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">岗位数量：</text>
+            <text class="info-value">{{item.jobCount}}</text>
+          </view>
+        </view>
+
+        <view class="career-desc">
+          <text>{{item.description}}</text>
+        </view>
+
+        <view class="skills-section">
+          <text class="skills-label">核心技能：</text>
+          <view class="skills-tags">
+            <text class="skill-tag" wx:for="{{item.skillRequirementsArray}}" wx:key="index" wx:for-item="skill">{{skill}}</text>
+          </view>
+        </view>
+
+        <view class="career-path">
+          <text class="path-label">职业发展：</text>
+          <text class="path-text">{{item.careerPath}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{selectedIndustryDetail}}" class="detail-modal" bindtap="closeDetail">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">{{selectedIndustryDetail.name}}</text>
+        <text class="close-btn" bindtap="closeDetail">✕</text>
+      </view>
+
+      <view class="modal-body">
+        <view class="detail-section">
+          <text class="detail-title">行业概况</text>
+          <text class="detail-text">{{selectedIndustryDetail.description}}</text>
+        </view>
+
+        <view class="detail-section">
+          <text class="detail-title">相关职业</text>
+          <view class="related-careers">
+            <view class="related-career-item" wx:for="{{relatedCareers}}" wx:key="id">
+              <text class="related-career-name">{{item.name}}</text>
+              <text class="related-career-salary">¥{{item.avgSalary}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

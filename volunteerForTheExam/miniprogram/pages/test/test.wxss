@@ -1,0 +1,9 @@
+.container {
+  padding: 40rpx;
+}
+
+text {
+  display: block;
+  margin-bottom: 20rpx;
+  font-size: 32rpx;
+}

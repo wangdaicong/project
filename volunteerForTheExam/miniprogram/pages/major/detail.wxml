@@ -1,0 +1,67 @@
+<view class="container">
+  <view class="major-header card">
+    <view class="major-title">{{major.name}}</view>
+    <view class="major-tags">
+      <text class="tag tag-success">{{major.category}}</text>
+      <text class="tag">{{major.degree}}</text>
+      <text class="tag tag-warning">学制{{major.duration}}年</text>
+    </view>
+  </view>
+
+  <view class="stats-card card">
+    <view class="stat-item">
+      <view class="stat-icon">📊</view>
+      <view class="stat-info">
+        <view class="stat-value">{{major.employmentRate}}%</view>
+        <view class="stat-label">就业率</view>
+      </view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-icon">👥</view>
+      <view class="stat-info">
+        <view class="stat-value">{{major.enrollmentNumber}}</view>
+        <view class="stat-label">招生人数</view>
+      </view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-icon">📈</view>
+      <view class="stat-info">
+        <view class="stat-value">{{major.minScore}}</view>
+        <view class="stat-label">最低分数</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">📖 专业介绍</view>
+    <view class="section-content">{{major.introduction || '暂无介绍'}}</view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">📚 主要课程</view>
+    <view class="section-content">{{major.courses || '暂无课程信息'}}</view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">💼 就业方向</view>
+    <view class="section-content">{{major.employmentDirection || '暂无就业方向信息'}}</view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">🔥 相关职业</view>
+    <view class="career-list">
+      <view class="career-item" wx:for="{{relatedCareers}}" wx:key="id" bindtap="goToCareerDetail" data-id="{{item.id}}">
+        <view class="career-header">
+          <view class="career-position">{{item.position}}</view>
+          <view class="career-industry">{{item.industry}}</view>
+        </view>
+        <view class="career-meta">
+          <text class="career-salary">💰 {{item.salary}}</text>
+          <text class="career-demand">需求指数: {{item.demandIndex}}</text>
+        </view>
+      </view>
+      
+      <view class="empty-tip" wx:if="{{relatedCareers.length === 0}}">暂无相关职业信息</view>
+    </view>
+  </view>
+</view>
