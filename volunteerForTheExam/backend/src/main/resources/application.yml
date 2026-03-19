@@ -39,6 +39,6 @@ logging:
 # DeepSeek API配置
 deepseek:
   api:
-    key: ${DEEPSEEK_API_KEY:sk-f46691bdc9dc45199e5749ffeccf889b}
+    key: ${DEEPSEEK_API_KEY}
     base-url: https://api.deepseek.com/v1
     model: deepseek-chat

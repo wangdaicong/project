@@ -15,6 +15,8 @@ yarn-error.log*
 # 小程序
 miniprogram_npm/
 .miniprogram/
+miniprogram/project.config.json
+miniprogram/project.private.config.json
 
 # Java/Maven
 backend/target/
@@ -35,7 +37,8 @@ logs/
 *.sqlite
 *.sql.backup
 
-# 环境配置
+# 环境配置（敏感信息）
+.env
 .env.local
 .env.development.local
 .env.test.local
