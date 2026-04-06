@@ -15,6 +15,7 @@ public class Major implements Serializable {
     private Long universityId;
     private String name;
     private String category;
+    private String majorCategory;
     private String degree;
     private String introduction;
     private String courses;
@@ -23,4 +24,14 @@ public class Major implements Serializable {
     private Integer duration;
     private Integer minScore;
     private Integer enrollmentNumber;
+    private String tags;
+    
+    // 张雪峰式字段
+    private String zhangxuefengTags;
+    private String civilServiceAdvantage;
+    private String postgraduateNecessity;
+    private String employmentReality;
+    private String commonMisconceptions;
+    private String salaryLevel;
+    private String suitableCrowd;
 }
