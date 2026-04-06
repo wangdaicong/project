@@ -143,7 +143,14 @@ Page({
     }
 
     request.get('/university/list', params).then(res => {
-      const newList = this.data.universities.concat(res.records || []);
+      // 处理数据，添加字段映射
+      const processedList = (res.records || []).map(uni => ({
+        ...uni,
+        schoolType: uni.school_type || uni.school_nature || '',
+        supervisor: uni.supervisor || ''
+      }));
+      
+      const newList = this.data.universities.concat(processedList);
       this.setData({
         universities: newList,
         hasMore: res.current < res.pages,
@@ -209,7 +216,7 @@ Page({
   goToDetail(e) {
     const id = e.currentTarget.dataset.id;
     wx.navigateTo({
-      url: `/pages/university/detail?id=${id}`
+      url: `/packageB/pages/university/detail?id=${id}`
     });
   },
 

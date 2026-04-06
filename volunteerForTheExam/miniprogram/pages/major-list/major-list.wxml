@@ -1,0 +1,75 @@
+<view class="container">
+  <!-- Tab切换 -->
+  <view class="degree-tabs">
+    <view class="degree-tab {{degreeLevel === '本科' ? 'active' : ''}}" bindtap="switchDegree" data-level="本科">本科专业</view>
+    <view class="degree-tab {{degreeLevel === '专科' ? 'active' : ''}}" bindtap="switchDegree" data-level="专科">专科专业</view>
+    <view class="degree-tab {{degreeLevel === '职业本科' ? 'active' : ''}}" bindtap="switchDegree" data-level="职业本科">职业本科</view>
+  </view>
+
+  <!-- 专业测评入口 -->
+  <view class="test-banner" bindtap="goToTest">
+    <text class="test-title">测一测适合你的专业</text>
+    <button class="test-btn">立即测试</button>
+  </view>
+
+  <!-- 学科门类筛选 -->
+  <scroll-view class="category-tabs" scroll-x>
+    <view class="category-tab {{selectedCategory === '' ? 'active' : ''}}" bindtap="selectCategory" data-category="">全部</view>
+    <view class="category-tab {{selectedCategory === item ? 'active' : ''}}" 
+          wx:for="{{categories}}" 
+          wx:key="*this"
+          bindtap="selectCategory" 
+          data-category="{{item}}">
+      {{item}}
+    </view>
+  </scroll-view>
+
+  <!-- 左右分栏 -->
+  <view class="main-content">
+    <!-- 左侧专业大类 -->
+    <scroll-view class="left-panel" scroll-y>
+      <view class="sub-category-item {{selectedSubCategory === '' ? 'active' : ''}}" 
+            bindtap="selectSubCategory" 
+            data-sub="">
+        全部
+      </view>
+      <view class="sub-category-item {{selectedSubCategory === item ? 'active' : ''}}" 
+            wx:for="{{subCategories}}" 
+            wx:key="*this"
+            bindtap="selectSubCategory" 
+            data-sub="{{item}}">
+        {{item}}
+      </view>
+    </scroll-view>
+
+    <!-- 右侧专业列表 -->
+    <scroll-view class="right-panel" 
+                 scroll-y 
+                 bindscrolltolower="loadMore"
+                 lower-threshold="100">
+      <view class="major-item" 
+            wx:for="{{majors}}" 
+            wx:key="id"
+            bindtap="goToDetail"
+            data-id="{{item.id}}">
+        <view class="major-name">{{item.name}}</view>
+        <text class="arrow">›</text>
+      </view>
+
+      <!-- 加载状态 -->
+      <view class="loading" wx:if="{{loading}}">
+        <text>加载中...</text>
+      </view>
+      
+      <!-- 没有更多 -->
+      <view class="no-more" wx:if="{{!hasMore && majors.length > 0}}">
+        <text>没有更多了</text>
+      </view>
+      
+      <!-- 空状态 -->
+      <view class="empty" wx:if="{{majors.length === 0 && !loading}}">
+        <text>暂无专业数据</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>

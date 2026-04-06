@@ -1,0 +1,89 @@
+<!--pages/ai-chat/ai-chat.wxml-->
+<view class="container">
+  <!-- 顶部工具栏 -->
+  <view class="toolbar">
+    <view class="toolbar-title">AI智能助手</view>
+    <view class="toolbar-actions">
+      <view class="toolbar-btn" bindtap="toggleContextPanel">
+        <text class="iconfont icon-setting"></text>
+      </view>
+      <view class="toolbar-btn" bindtap="clearMessages">
+        <text class="iconfont icon-delete"></text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 上下文信息面板 -->
+  <view class="context-panel" wx:if="{{showContextPanel}}">
+    <view class="context-header">
+      <text class="context-title">个人信息</text>
+      <text class="context-tip">提供以下信息可获得更精准的建议</text>
+    </view>
+    
+    <view class="context-form">
+      <view class="form-item">
+        <text class="form-label">高考分数</text>
+        <input class="form-input" type="number" placeholder="请输入分数" 
+               value="{{userInfo.score}}" bindinput="onScoreInput" />
+      </view>
+      
+      <view class="form-item">
+        <text class="form-label">所在省份</text>
+        <input class="form-input" type="text" placeholder="请输入省份" 
+               value="{{userInfo.province}}" bindinput="onProvinceInput" />
+      </view>
+      
+      <view class="form-item">
+        <text class="form-label">科类</text>
+        <picker mode="selector" range="{{['理科', '文科']}}" bindchange="onCategoryChange">
+          <view class="form-picker">
+            {{userInfo.category || '请选择科类'}}
+          </view>
+        </picker>
+      </view>
+      
+      <button class="save-btn" bindtap="saveContext">保存信息</button>
+    </view>
+  </view>
+
+  <!-- 消息列表 -->
+  <scroll-view class="message-list" scroll-y scroll-into-view="{{scrollIntoView}}" scroll-with-animation>
+    <view class="message-item {{msg.type}}" wx:for="{{messages}}" wx:key="id" id="{{msg.id}}">
+      <view class="message-avatar">
+        <image wx:if="{{msg.type === 'ai'}}" src="/images/ai-avatar.png" />
+        <image wx:else src="/images/user-avatar.png" />
+      </view>
+      
+      <view class="message-content">
+        <view class="message-time">{{msg.time}}</view>
+        <view class="message-bubble {{msg.type}}">
+          <text class="message-text" wx:if="{{!msg.loading}}">{{msg.content}}</text>
+          <view class="loading" wx:else>
+            <view class="loading-dot"></view>
+            <view class="loading-dot"></view>
+            <view class="loading-dot"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 常见问题 -->
+  <view class="common-questions" wx:if="{{commonQuestions.length > 0 && messages.length <= 1}}">
+    <view class="questions-title">常见问题</view>
+    <scroll-view class="questions-list" scroll-x>
+      <view class="question-item" wx:for="{{commonQuestions}}" wx:key="index"
+            bindtap="onQuestionTap" data-question="{{item.question}}">
+        <text class="question-text">{{item.question}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 输入框 -->
+  <view class="input-bar">
+    <input class="input-field" type="text" placeholder="请输入您的问题..." 
+           value="{{inputText}}" bindinput="onInputChange" confirm-type="send" 
+           bindconfirm="sendMessage" />
+    <button class="send-btn" bindtap="sendMessage">发送</button>
+  </view>
+</view>

@@ -54,6 +54,16 @@
       <view class="action-title">行业趋势</view>
       <view class="action-desc">行业发展分析</view>
     </view>
+    <view class="action-item" bindtap="goToAssessment">
+      <view class="action-icon" style="background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);">🎯</view>
+      <view class="action-title">专业测评</view>
+      <view class="action-desc">智能推荐专业</view>
+    </view>
+    <view class="action-item" bindtap="goToVolunteer">
+      <view class="action-icon" style="background: linear-gradient(135deg, #FA709A 0%, #FEE140 100%);">📝</view>
+      <view class="action-title">志愿填报</view>
+      <view class="action-desc">模拟填报志愿</view>
+    </view>
     <view class="action-item" bindtap="goToEnrollment">
       <view class="action-icon" style="background: linear-gradient(135deg, #FFA751 0%, #FFE259 100%);">🎓</view>
       <view class="action-title">升学规划</view>

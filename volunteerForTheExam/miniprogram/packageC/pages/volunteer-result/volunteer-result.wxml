@@ -1,0 +1,77 @@
+<view class="container">
+  <view class="header">
+    <view class="header-icon">🎓</view>
+    <view class="header-title">志愿填报分析报告</view>
+    <view class="header-subtitle" wx:if="{{application}}">
+      {{application.studentName}} · {{application.province}} · {{application.category}} · {{application.score}}分
+    </view>
+  </view>
+
+  <!-- 分析概览 -->
+  <view class="card" wx:if="{{analysis}}">
+    <view class="card-title">📊 方案分析</view>
+    
+    <view class="analysis-overview">
+      <view class="overview-item">
+        <view class="overview-value">{{analysis.totalVolunteers}}</view>
+        <view class="overview-label">志愿总数</view>
+      </view>
+      <view class="overview-item">
+        <view class="overview-value risk">{{analysis.riskScore}}</view>
+        <view class="overview-label">风险评分</view>
+      </view>
+    </view>
+
+    <view class="risk-distribution">
+      <view class="distribution-item">
+        <view class="distribution-bar rush" style="width: {{(analysis.rushCount / analysis.totalVolunteers * 100)}}%"></view>
+        <view class="distribution-label">冲刺 {{analysis.rushCount}}</view>
+      </view>
+      <view class="distribution-item">
+        <view class="distribution-bar stable" style="width: {{(analysis.stableCount / analysis.totalVolunteers * 100)}}%"></view>
+        <view class="distribution-label">稳妥 {{analysis.stableCount}}</view>
+      </view>
+      <view class="distribution-item">
+        <view class="distribution-bar safe" style="width: {{(analysis.safeCount / analysis.totalVolunteers * 100)}}%"></view>
+        <view class="distribution-label">保底 {{analysis.safeCount}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 填报建议 -->
+  <view class="card" wx:if="{{analysis}}">
+    <view class="card-title">💡 填报建议</view>
+    <view class="suggestion-text">{{analysis.suggestion}}</view>
+  </view>
+
+  <!-- 志愿列表 -->
+  <view class="card">
+    <view class="card-title">📋 志愿详情</view>
+    
+    <view class="volunteer-list">
+      <view class="volunteer-card" wx:for="{{volunteers}}" wx:key="id" 
+            bindtap="viewUniversityDetail" data-universityid="{{item.universityId}}">
+        <view class="volunteer-header">
+          <view class="volunteer-number">志愿{{item.volunteerOrder}}</view>
+          <view class="volunteer-tags">
+            <view class="tag {{item.riskLevel}}">
+              {{item.riskLevel === 'rush' ? '冲刺' : item.riskLevel === 'stable' ? '稳妥' : '保底'}}
+            </view>
+            <view class="tag probability">
+              录取概率: {{item.admissionProbability === 'high' ? '高' : item.admissionProbability === 'medium' ? '中' : item.admissionProbability === 'low' ? '低' : '未知'}}
+            </view>
+          </view>
+        </view>
+        <view class="volunteer-name">{{item.universityName}}</view>
+        <view class="volunteer-major" wx:if="{{item.majorName}}">专业: {{item.majorName}}</view>
+        <view class="volunteer-arrow">→</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-buttons">
+    <button class="action-btn secondary" bindtap="reEdit">重新编辑</button>
+    <button class="action-btn primary" bindtap="backToHome">返回首页</button>
+  </view>
+</view>

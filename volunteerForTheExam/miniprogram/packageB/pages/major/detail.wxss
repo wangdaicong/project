@@ -1,0 +1,198 @@
+/* packageB/pages/major/detail.wxss */
+.container {
+  padding: 20rpx;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+.card {
+  background: white;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+/* 专业头部 */
+.major-header {
+  margin-bottom: 20rpx;
+}
+
+.major-name {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 20rpx;
+}
+
+.major-meta {
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  color: #7f8c8d;
+}
+
+.meta-item {
+  color: #7f8c8d;
+}
+
+.meta-divider {
+  margin: 0 16rpx;
+  color: #ddd;
+}
+
+.major-tags {
+  margin-top: 16rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.major-tags .tag {
+  display: inline-block;
+  padding: 8rpx 16rpx;
+  background: #e8f4fd;
+  color: #3498db;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  margin-right: 12rpx;
+}
+
+/* Tab样式 */
+.tabs-container {
+  background: white;
+  margin: 20rpx 0;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.tabs {
+  display: flex;
+  background: white;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 30rpx 0;
+  font-size: 28rpx;
+  color: #666;
+  position: relative;
+  transition: all 0.3s;
+}
+
+.tab.active {
+  color: #4A90E2;
+  font-weight: bold;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60rpx;
+  height: 6rpx;
+  background: #4A90E2;
+  border-radius: 3rpx;
+}
+
+.tab-content {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 内容区域 */
+.section {
+  margin-bottom: 20rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 20rpx;
+}
+
+.section-content {
+  font-size: 28rpx;
+  color: #5a6c7d;
+  line-height: 1.8;
+  text-align: justify;
+}
+
+.empty-tip {
+  text-align: center;
+  color: #999;
+  padding: 60rpx 0;
+  font-size: 28rpx;
+}
+
+/* 避坑指南样式 */
+.tags-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+.guide-tag {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16rpx 32rpx;
+  border-radius: 40rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+}
+
+.guide-card {
+  background: #f8f9fa;
+  padding: 24rpx;
+  border-radius: 12rpx;
+  margin-top: 20rpx;
+}
+
+.card-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+  font-size: 28rpx;
+}
+
+.card-item .label {
+  color: #7f8c8d;
+  margin-right: 16rpx;
+}
+
+.card-item .value {
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.value-salary {
+  color: #e74c3c;
+}
+
+.card-content {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #e8ecf0;
+  font-size: 28rpx;
+  color: #5a6c7d;
+  line-height: 1.8;
+}
+
+.warning-card {
+  border-left: 4rpx solid #f39c12;
+  background: #fff9e6;
+}

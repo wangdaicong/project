@@ -1,7 +1,9 @@
 <view class="container">
   <view class="university-header card">
     <view class="header-top">
-      <image class="university-logo-large" src="{{university.logoUrl || '/images/default-logo.png'}}" mode="aspectFill"></image>
+      <view class="university-logo-large">
+        <text class="logo-icon">🎓</text>
+      </view>
       <view class="header-info">
         <view class="university-name">{{university.name}}</view>
         <view class="university-location">📍 {{university.province}} · {{university.city}}</view>
@@ -26,13 +28,17 @@
     </view>
 
     <view class="action-buttons">
-      <button class="action-btn" bindtap="addToCompare">
-        <image class="btn-icon" src="/images/compare-icon.png" mode="aspectFit"></image>
-        加入对比
+      <button class="action-btn" bindtap="toggleFavorite">
+        <text class="btn-icon">{{isFavorite ? '⭐' : '☆'}}</text>
+        {{isFavorite ? '已收藏' : '收藏'}}
       </button>
-      <button class="action-btn action-btn-primary" bindtap="callPhone">
-        <image class="btn-icon" src="/images/phone-icon.png" mode="aspectFit"></image>
-        联系学校
+      <button class="action-btn" bindtap="{{isInCompare ? 'removeFromCompare' : 'addToCompare'}}">
+        <text class="btn-icon">📊</text>
+        {{isInCompare ? '移除对比' : '加入对比'}}
+      </button>
+      <button class="action-btn action-btn-primary" bindtap="viewScoreTrend">
+        <text class="btn-icon">�</text>
+        分数线趋势
       </button>
     </view>
   </view>

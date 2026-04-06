@@ -7,14 +7,28 @@ Page({
     levelIndex: 0,
     typeIndex: 0,
     provinceIndex: 0,
-    levels: ['全部', '985', '211', '双一流', '普通本科', '专科'],
-    types: ['全部', '综合', '理工', '师范', '医药', '财经', '政法', '农林', '艺术'],
-    provinces: ['全部', '北京', '上海', '天津', '重庆', '江苏', '浙江', '广东', '山东', '河南', '湖北', '湖南', '四川', '陕西'],
+    supervisorIndex: 0,
+    natureIndex: 0,
+    specialIndex: 0,
+    // 弹窗显示状态
+    showProvinceSheet: false,
+    showSupervisorSheet: false,
+    showLevelSheet: false,
+    showNatureSheet: false,
+    showSpecialSheet: false,
+    // 筛选选项
+    levels: ['全部', '本科', '专科'],
+    types: ['全部', '综合', '理工', '师范', '医药', '财经', '政法', '农林', '艺术', '语言', '体育', '民族'],
+    provinces: ['全部', '北京', '上海', '天津', '河北', '山西', '内蒙古', '辽宁', '吉林', '黑龙江', '上海', '江苏', '浙江', '安徽', '福建', '江西', '山东', '河南', '湖北', '湖南', '广东', '广西', '海南', '重庆', '四川', '贵州', '云南', '西藏', '陕西', '甘肃', '青海', '宁夏', '新疆'],
+    supervisors: ['全部', '教育部', '其他部委', '地方', '军校'],
+    natures: ['全部', '双一流建设高校', '民办高校', '独立学院', '中外合作办学', '内地与港澳台地区合作办学'],
+    specialTags: ['全部', '985', '211', '双一流'],
     universities: [],
     loading: false,
     networkError: false,
-    pageNum: 1,
-    pageSize: 20,
+    page: 1,
+    size: 10,
+    total: 0,
     hasMore: true
   },
 
@@ -146,37 +160,114 @@ Page({
     this.loadUniversities('', keyword);
   },
 
+  // 显示省份弹窗
+  showProvincePopup() {
+    this.setData({ showProvinceSheet: true });
+  },
+
+  // 显示主管部门弹窗
+  showSupervisorPopup() {
+    this.setData({ showSupervisorSheet: true });
+  },
+
+  // 显示办学层次弹窗
+  showLevelPopup() {
+    this.setData({ showLevelSheet: true });
+  },
+
+  // 显示办学性质弹窗
+  showNaturePopup() {
+    this.setData({ showNatureSheet: true });
+  },
+
+  // 显示特殊标签弹窗
+  showSpecialPopup() {
+    this.setData({ showSpecialSheet: true });
+  },
+
+  // 切换筛选面板显示/隐藏
   toggleFilter() {
     this.setData({
       showFilter: !this.data.showFilter
     });
   },
 
-  onLevelChange(e) {
+  // 隐藏所有弹窗
+  hideAllPopup() {
     this.setData({
-      levelIndex: e.detail.value
+      showProvinceSheet: false,
+      showSupervisorSheet: false,
+      showLevelSheet: false,
+      showNatureSheet: false,
+      showSpecialSheet: false
     });
   },
 
-  onTypeChange(e) {
+  // 确定筛选
+  onConfirmFilter() {
     this.setData({
-      typeIndex: e.detail.value
+      showFilter: false,
+      page: 1,
+      universities: []
     });
-  },
-
-  onProvinceChange(e) {
-    this.setData({
-      provinceIndex: e.detail.value
-    });
+    this.loadUniversities();
   },
 
   // 应用筛选
   onApplyFilter() {
     this.setData({
-      pageNum: 1,
-      universities: []
+      page: 1,
+      universities: [],
+      showFilter: false
     });
     this.loadUniversities();
+  },
+
+  onLevelChange(e) {
+    const index = e.currentTarget.dataset.index;
+    this.setData({
+      levelIndex: index
+    });
+    this.hideAllPopup();
+  },
+
+  onTypeChange(e) {
+    const index = e.currentTarget.dataset.index;
+    this.setData({
+      typeIndex: index
+    });
+  },
+
+  onProvinceChange(e) {
+    const index = e.currentTarget.dataset.index;
+    this.setData({
+      provinceIndex: index
+    });
+    this.hideAllPopup();
+  },
+
+  onSupervisorChange(e) {
+    const index = e.currentTarget.dataset.index;
+    this.setData({
+      supervisorIndex: index
+    });
+    this.hideAllPopup();
+  },
+
+  onNatureChange(e) {
+    const index = e.currentTarget.dataset.index;
+    this.setData({
+      natureIndex: index
+    });
+    this.hideAllPopup();
+  },
+
+  onSpecialChange(e) {
+    const index = e.currentTarget.dataset.index;
+    this.setData({
+      specialIndex: index
+    });
+    this.hideAllPopup();
   },
 
   // 重置筛选
@@ -185,35 +276,48 @@ Page({
       levelIndex: 0,
       typeIndex: 0,
       provinceIndex: 0,
+      supervisorIndex: 0,
+      natureIndex: 0,
+      specialIndex: 0,
       keyword: '',
-      pageNum: 1,
+      page: 1,
       universities: []
     });
     this.loadUniversities();
   },
 
-  loadUniversities(level = '', keyword = '') {
+  // 加载更多
+  loadMore() {
+    if (this.data.loading || !this.data.hasMore) return;
+    this.setData({
+      page: this.data.page + 1
+    });
+    this.loadUniversities(true);
+  },
+
+  // 页面滚动到底部
+  onReachBottom() {
+    this.loadMore();
+  },
+
+  loadUniversities(append = false) {
     this.setData({ loading: true, networkError: false });
-    wx.showLoading({ title: '加载中...' });
-    
-    const { pageNum, pageSize, levelIndex, typeIndex, provinceIndex, levels, types, provinces } = this.data;
-    
-    // 构建请求参数
-    let url = '/university/list';
-    const params = [];
-    params.push(`pageNum=${pageNum}`);
-    params.push(`pageSize=${pageSize}`);
-    
-    // 层次筛选
-    if (level) {
-      params.push(`level=${encodeURIComponent(level)}`);
-    } else if (levelIndex > 0) {
-      params.push(`level=${encodeURIComponent(levels[levelIndex])}`);
+    if (!append) {
+      wx.showLoading({ title: '加载中...' });
     }
     
-    // 类型筛选
-    if (typeIndex > 0) {
-      params.push(`type=${encodeURIComponent(types[typeIndex])}`);
+    const { page, size, levelIndex, typeIndex, provinceIndex, supervisorIndex, natureIndex, specialIndex, 
+            levels, types, provinces, supervisors, natures, specialTags, keyword } = this.data;
+    
+    // 构建请求参数
+    let url = '/university/search';
+    const params = [];
+    params.push(`page=${page}`);
+    params.push(`size=${size}`);
+    
+    // 关键词搜索
+    if (keyword && keyword.trim()) {
+      params.push(`keyword=${encodeURIComponent(keyword.trim())}`);
     }
     
     // 省份筛选
@@ -221,9 +325,36 @@ Page({
       params.push(`province=${encodeURIComponent(provinces[provinceIndex])}`);
     }
     
-    // 关键词搜索
-    if (keyword) {
-      params.push(`keyword=${encodeURIComponent(keyword)}`);
+    // 主管部门筛选
+    if (supervisorIndex > 0) {
+      params.push(`supervisor=${encodeURIComponent(supervisors[supervisorIndex])}`);
+    }
+    
+    // 办学层次筛选
+    if (levelIndex > 0) {
+      params.push(`level=${encodeURIComponent(levels[levelIndex])}`);
+    }
+    
+    // 办学性质筛选
+    if (natureIndex > 0) {
+      params.push(`schoolNature=${encodeURIComponent(natures[natureIndex])}`);
+    }
+    
+    // 类型筛选
+    if (typeIndex > 0) {
+      params.push(`type=${encodeURIComponent(types[typeIndex])}`);
+    }
+    
+    // 特殊标签筛选（985/211/双一流）
+    if (specialIndex > 0) {
+      const tag = specialTags[specialIndex];
+      if (tag === '985') {
+        params.push('is985=true');
+      } else if (tag === '211') {
+        params.push('is211=true');
+      } else if (tag === '双一流') {
+        params.push('isDoubleFirstClass=true');
+      }
     }
     
     if (params.length > 0) url += '?' + params.join('&');
@@ -233,26 +364,56 @@ Page({
     request.get(url).then(res => {
       console.log('后端返回数据:', res);
       
-      // 处理分页数据
-      const universities = res.records || res.data || res || [];
-      const total = res.total || universities.length;
-      const hasMore = pageNum * pageSize < total;
+      if (!res.success) {
+        throw new Error(res.message || '加载失败');
+      }
       
-      // 确保每个院校都有完整的数据结构
-      const processedUniversities = universities.map(uni => ({
-        ...uni,
-        introduction: uni.introduction || '',
-        features: uni.features || '',
-        address: uni.address || '',
-        phone: uni.phone || '',
-        website: uni.website || '',
-        minScore: uni.minScore || null,
-        maxScore: uni.maxScore || null,
-        ranking: uni.ranking || null
-      }));
+      // 处理分页数据
+      const universities = res.data || [];
+      const total = res.total || 0;
+      const totalPages = res.totalPages || 1;
+      const hasMore = page < totalPages;
+      
+      // 确保每个院校都有完整的数据结构和标签列表，并转换字段名
+      const processedUniversities = universities.map(uni => {
+        const tagList = [];
+        if (uni.is_985) tagList.push('985');
+        if (uni.is_211) tagList.push('211');
+        if (uni.is_double_first_class) tagList.push('双一流');
+        if (uni.school_nature) tagList.push(uni.school_nature);
+        
+        return {
+          id: uni.id,
+          schoolName: uni.school_name || '',
+          schoolIdCode: uni.school_id_code || '',
+          supervisor: uni.supervisor || '',
+          location: uni.location || '',
+          schoolLevel: uni.level || uni.school_level || '',
+          schoolType: uni.school_type || uni.school_nature || '',
+          logoUrl: uni.logo_url || '',
+          website: uni.website || '',
+          address: uni.address || '',
+          phone: uni.phone || '',
+          is985: uni.is_985 || false,
+          is211: uni.is_211 || false,
+          isDoubleFirstClass: uni.is_double_first_class || false,
+          schoolNature: uni.school_nature || '',
+          introduction: uni.introduction || '',
+          tagList: tagList,
+          wechatName: uni.wechat_name || '',
+          wechatId: uni.wechat_id || '',
+          weiboName: uni.weibo_name || '',
+          weiboId: uni.weibo_id || '',
+          baijiaName: uni.baijia_name || '',
+          baijiaId: uni.baijia_id || '',
+          videoName: uni.video_name || '',
+          videoId: uni.video_id || ''
+        };
+      });
       
       this.setData({
-        universities: processedUniversities,
+        universities: append ? this.data.universities.concat(processedUniversities) : processedUniversities,
+        total: total,
         hasMore: hasMore,
         loading: false,
         networkError: false
@@ -260,9 +421,9 @@ Page({
       
       wx.hideLoading();
       
-      if (universities.length === 0) {
+      if (!append && universities.length === 0) {
         wx.showToast({
-          title: '暂无数据',
+          title: '暂无符合条件的院校',
           icon: 'none'
         });
       }
@@ -286,8 +447,9 @@ Page({
 
   goToDetail(e) {
     const id = e.currentTarget.dataset.id;
+    console.log('跳转到院校详情，ID:', id);
     wx.navigateTo({
-      url: `/pages/university/detail?id=${id}`
+      url: `/packageB/pages/university/detail?id=${id}`
     });
   },
 

@@ -1,22 +1,70 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/recommend/recommend",
     "pages/university/university",
     "pages/major/major",
     "pages/mine/mine",
-    "pages/search/search",
-    "pages/university/detail",
-    "pages/major/detail",
-    "pages/career/career",
-    "pages/career/detail",
-    "pages/compare/compare",
-    "pages/employment/employment",
-    "pages/industry/industry",
-    "pages/enrollment/enrollment",
-    "pages/city-employment/city-employment",
-    "pages/test/test"
+    "pages/ai-chat/ai-chat",
+    "pages/favorite/favorite",
+    "pages/compare/compare"
   ],
+  "subpackages": [
+    {
+      "root": "packageA",
+      "name": "search",
+      "pages": [
+        "pages/search/search",
+        "pages/recommend/recommend"
+      ]
+    },
+    {
+      "root": "packageB",
+      "name": "detail",
+      "pages": [
+        "pages/university/detail",
+        "pages/major/detail",
+        "pages/score-trend/score-trend"
+      ]
+    },
+    {
+      "root": "packageC",
+      "name": "tools",
+      "pages": [
+        "pages/compare/compare",
+        "pages/favorite/favorite",
+        "pages/assessment/assessment",
+        "pages/assessment-result/assessment-result",
+        "pages/volunteer/volunteer",
+        "pages/volunteer-result/volunteer-result"
+      ]
+    },
+    {
+      "root": "packageD",
+      "name": "employment",
+      "pages": [
+        "pages/career/career",
+        "pages/career/detail",
+        "pages/employment/employment",
+        "pages/industry/industry",
+        "pages/enrollment/enrollment",
+        "pages/city-employment/city-employment"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/index/index": {
+      "network": "all",
+      "packages": ["search"]
+    },
+    "pages/university/university": {
+      "network": "all",
+      "packages": ["detail"]
+    },
+    "pages/major/major": {
+      "network": "all",
+      "packages": ["detail"]
+    }
+  },
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#4A90E2",

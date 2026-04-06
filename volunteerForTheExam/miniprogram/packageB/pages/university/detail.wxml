@@ -1,0 +1,214 @@
+<!--packageB/pages/university/detail.wxml-->
+<view class="container">
+  <!-- 院校头部 -->
+  <view class="university-header card">
+    <view class="header-top">
+      <view class="university-logo-large">
+        <image wx:if="{{university.logoUrl}}" class="logo-image" src="{{university.logoUrl}}" mode="aspectFit" />
+        <text wx:else class="logo-icon">🎓</text>
+      </view>
+      <view class="header-info">
+        <view class="university-name">{{university.name}}</view>
+        <view class="university-meta">
+          <text class="meta-location">📍 {{university.location || university.province}}</text>
+          <text class="meta-divider">|</text>
+          <text class="meta-supervisor">主管部门：{{university.supervisor || '未知'}}</text>
+        </view>
+        <view class="university-tags">
+          <text class="tag tag-985" wx:if="{{university.is985}}">985</text>
+          <text class="tag tag-211" wx:if="{{university.is211}}">211</text>
+          <text class="tag tag-double" wx:if="{{university.isDoubleFirstClass}}">双一流</text>
+          <text class="tag tag-level" wx:if="{{university.level}}">{{university.level}}</text>
+          <text class="tag tag-nature" wx:if="{{university.schoolNature}}">{{university.schoolNature}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="action-buttons">
+      <button class="action-btn" bindtap="toggleFavorite">
+        <text class="btn-icon">{{isFavorite ? '⭐' : '☆'}}</text>
+        {{isFavorite ? '已收藏' : '收藏'}}
+      </button>
+      <button class="action-btn" bindtap="{{isInCompare ? 'removeFromCompare' : 'addToCompare'}}">
+        <text class="btn-icon">📊</text>
+        {{isInCompare ? '移除对比' : '加入对比'}}
+      </button>
+      <button class="action-btn action-btn-primary" bindtap="viewScoreTrend">
+        <text class="btn-icon">📈</text>
+        分数线趋势
+      </button>
+    </view>
+  </view>
+
+  <!-- Tab切换 -->
+  <view class="tabs-container">
+    <view class="tabs">
+      <view class="tab {{currentTab === 0 ? 'active' : ''}}" bindtap="switchTab" data-index="0">
+        基本信息
+      </view>
+      <view class="tab {{currentTab === 1 ? 'active' : ''}}" bindtap="switchTab" data-index="1">
+        学校简介
+      </view>
+      <view class="tab {{currentTab === 2 ? 'active' : ''}}" bindtap="switchTab" data-index="2">
+        开设专业
+      </view>
+      <view class="tab {{currentTab === 3 ? 'active' : ''}}" bindtap="switchTab" data-index="3">
+        院校分析
+      </view>
+    </view>
+  </view>
+
+  <!-- Tab内容0：基本信息（包含14个爬取字段） -->
+  <view class="tab-content" wx:if="{{currentTab === 0}}">
+    <view class="section card">
+      <view class="section-title">◆ 基本信息</view>
+      <view class="info-list">
+        <view class="info-item">
+          <text class="info-label">院校名称</text>
+          <text class="info-value">{{university.name || '未知'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">所在地区</text>
+          <text class="info-value">{{university.location || university.province || '未知'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">院校层次</text>
+          <text class="info-value">{{university.level || '未知'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">院校类型</text>
+          <text class="info-value">{{university.schoolNature || university.type || '未知'}}</text>
+        </view>
+        <view class="info-item" wx:if="{{university.address}}">
+          <text class="info-label">学校地址</text>
+          <text class="info-value">{{university.address}}</text>
+        </view>
+        <view class="info-item" wx:if="{{university.phone}}">
+          <text class="info-label">联系电话</text>
+          <text class="info-value">{{university.phone}}</text>
+        </view>
+        <view class="info-item" wx:if="{{university.website}}">
+          <text class="info-label">官方网站</text>
+          <text class="info-value link" bindtap="openWebsite">{{university.website}}</text>
+        </view>
+        <view class="info-item" wx:if="{{university.enrollmentWebsite}}">
+          <text class="info-label">招生网址</text>
+          <text class="info-value link" bindtap="openEnrollmentWebsite">{{university.enrollmentWebsite}}</text>
+        </view>
+        <view class="info-item" wx:if="{{university.wechatName}}">
+          <text class="info-label">微信公众号</text>
+          <text class="info-value">{{university.wechatName}}<text class="info-id" wx:if="{{university.wechatId}}"> ({{university.wechatId}})</text></text>
+        </view>
+        <view class="info-item" wx:if="{{university.weiboName}}">
+          <text class="info-label">官方微博</text>
+          <text class="info-value">{{university.weiboName}}<text class="info-id" wx:if="{{university.weiboId}}"> ({{university.weiboId}})</text></text>
+        </view>
+        <view class="info-item" wx:if="{{university.baijiaName}}">
+          <text class="info-label">百家号</text>
+          <text class="info-value">{{university.baijiaName}}<text class="info-id" wx:if="{{university.baijiaId}}"> ({{university.baijiaId}})</text></text>
+        </view>
+        <view class="info-item" wx:if="{{university.videoName}}">
+          <text class="info-label">视频号</text>
+          <text class="info-value">{{university.videoName}}<text class="info-id" wx:if="{{university.videoId}}"> ({{university.videoId}})</text></text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Tab内容1：学校简介 -->
+  <view class="tab-content" wx:if="{{currentTab === 1}}">
+    <view class="section card">
+      <view class="section-title">📖 学校简介</view>
+      <view class="section-content">{{university.introduction || '暂无简介'}}</view>
+    </view>
+
+    <view class="section card">
+      <view class="section-title">✨ 办学特色</view>
+      <view class="section-content">{{university.features || '暂无特色介绍'}}</view>
+    </view>
+  </view>
+
+  <!-- Tab内容2：开设专业 -->
+  <view class="tab-content" wx:if="{{currentTab === 2}}">
+    <view class="section card">
+      <view class="section-title">🎓 开设专业</view>
+      
+      <!-- 专业分类筛选 -->
+      <view class="category-filter" wx:if="{{majorCategories.length > 1}}">
+        <view class="category-grid">
+          <view 
+            class="category-item {{selectedCategory === item ? 'active' : ''}}" 
+            wx:for="{{majorCategories}}" 
+            wx:key="index"
+            bindtap="switchMajorCategory"
+            data-category="{{item}}">
+            {{item}}
+          </view>
+        </view>
+      </view>
+      
+      <view class="major-list">
+        <view class="major-item" wx:for="{{majors}}" wx:key="id" bindtap="goToMajorDetail" data-id="{{item.id}}">
+          <view class="major-header">
+            <view class="major-name-wrapper">
+              <view class="major-name">{{item.name}}</view>
+            </view>
+            <view class="major-category">{{item.category}}</view>
+          </view>
+          <view class="major-meta">
+            <text class="major-info">学制 {{item.duration}}年</text>
+            <text class="major-info" wx:if="{{item.employmentRate}}">就业率 {{item.employmentRate}}%</text>
+          </view>
+          <view class="major-tags" wx:if="{{item.tagsArray && item.tagsArray.length > 0}}">
+            <text class="tag" wx:for="{{item.tagsArray}}" wx:for-item="tagItem" wx:key="*this">{{tagItem}}</text>
+          </view>
+        </view>
+        
+        <view class="empty-tip" wx:if="{{majors.length === 0}}">暂无专业信息</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Tab内容3：院校分析 -->
+  <view class="tab-content" wx:if="{{currentTab === 3}}">
+    <view class="section card" wx:if="{{!zhangxuefeng || (!zhangxuefeng.historical_affiliation && !zhangxuefeng.industry_recognition)}}">
+      <view class="empty-tip">暂无院校分析数据</view>
+    </view>
+
+    <!-- 历史沿革标签 -->
+    <view class="section card" wx:if="{{zhangxuefeng.historical_affiliation}}">
+      <view class="zxf-tag tag-primary">
+        <text class="tag-icon">🏛️</text>
+        <text class="tag-text">{{zhangxuefeng.historical_affiliation}}</text>
+      </view>
+    </view>
+
+    <!-- 行业认可度 -->
+    <view class="section card" wx:if="{{zhangxuefeng.industry_recognition}}">
+      <view class="zxf-tag tag-success">
+        <text class="tag-icon">⚡</text>
+        <text class="tag-text">{{zhangxuefeng.industry_recognition}}</text>
+      </view>
+    </view>
+
+    <!-- 学科实力 -->
+    <view class="section card" wx:if="{{zhangxuefeng.has_doctoral_program || zhangxuefeng.has_master_program}}">
+      <view class="zxf-tag tag-info">
+        <text class="tag-icon">🎓</text>
+        <text class="tag-text">{{zhangxuefeng.has_doctoral_program ? '有博士点' : ''}}{{zhangxuefeng.has_doctoral_program && zhangxuefeng.has_master_program ? ' · ' : ''}}{{zhangxuefeng.has_master_program ? '有硕士点' : ''}}</text>
+      </view>
+    </view>
+
+    <!-- 就业优势 -->
+    <view class="section card" wx:if="{{zhangxuefeng.employment_advantage}}">
+      <view class="section-title">💼 就业优势</view>
+      <view class="section-content zxf-content">{{zhangxuefeng.employment_advantage}}</view>
+    </view>
+
+    <!-- 考研难度 -->
+    <view class="section card" wx:if="{{zhangxuefeng.postgraduate_difficulty}}">
+      <view class="section-title">📚 考研难度</view>
+      <view class="section-content zxf-content">{{zhangxuefeng.postgraduate_difficulty}}</view>
+    </view>
+  </view>
+</view>

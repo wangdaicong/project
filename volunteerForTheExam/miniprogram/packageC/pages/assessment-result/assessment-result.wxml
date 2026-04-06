@@ -1,0 +1,72 @@
+<view class="container">
+  <!-- 顶部横幅 -->
+  <view class="header-banner">
+    <view class="banner-icon">🎯</view>
+    <view class="banner-title">测评完成</view>
+    <view class="banner-desc">为您推荐以下专业</view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>分析中...</text>
+  </view>
+
+  <!-- 结果内容 -->
+  <view class="result-content" wx:if="{{!loading}}">
+    <!-- 类别得分 -->
+    <view class="section card">
+      <view class="section-title">📊 能力分析</view>
+      <view class="score-grid">
+        <view class="score-item" wx:for="{{Object.keys(categoryScores)}}" wx:key="*this">
+          <view class="score-label">{{item}}</view>
+          <view class="score-bar">
+            <view class="score-fill" style="width: {{categoryScores[item]}}%"></view>
+          </view>
+          <view class="score-value">{{categoryScores[item]}}分</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 推荐专业 -->
+    <view class="section card">
+      <view class="section-title">🎓 推荐专业（Top 10）</view>
+      <view class="major-list">
+        <view 
+          class="major-item" 
+          wx:for="{{recommendedMajors}}" 
+          wx:key="name"
+          bindtap="viewMajorDetail"
+          data-name="{{item.name}}">
+          <view class="major-rank">{{index + 1}}</view>
+          <view class="major-info">
+            <view class="major-name">{{item.name}}</view>
+            <view class="major-match">
+              <view class="match-bar">
+                <view class="match-fill" style="width: {{item.matchRate}}%"></view>
+              </view>
+              <text class="match-rate">{{item.matchRate}}% 匹配</text>
+            </view>
+          </view>
+          <view class="major-arrow">→</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 建议 -->
+    <view class="section card">
+      <view class="section-title">💡 建议</view>
+      <view class="suggestion-text">
+        <text>• 以上推荐基于您的兴趣、能力、性格和价值观综合分析</text>
+        <text>• 建议结合自身实际情况和职业规划进行选择</text>
+        <text>• 可以查看各专业的详细信息和就业前景</text>
+        <text>• 如有疑问，可咨询专业的升学规划老师</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部按钮 -->
+  <view class="bottom-actions" wx:if="{{!loading}}">
+    <button class="btn-secondary" bindtap="retakeAssessment">重新测评</button>
+    <button class="btn-primary" bindtap="goHome">返回首页</button>
+  </view>
+</view>

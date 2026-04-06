@@ -59,14 +59,15 @@
         <image class="university-logo" src="{{item.logoUrl || '/images/default-logo.png'}}" mode="aspectFill"></image>
         <view class="university-info">
           <view class="university-name">{{item.name}}</view>
-          <view class="university-location">📍 {{item.province}} · {{item.city}}</view>
-          <view class="university-tags">
-            <text class="tag tag-success" wx:if="{{item.level}}">{{item.level}}</text>
-            <text class="tag">{{item.type}}</text>
+          <view class="university-meta">
+            <text class="meta-location">📍 {{item.province}}</text>
+            <text class="meta-divider">|</text>
+            <text class="meta-supervisor">主管部门：{{item.supervisor || '未知'}}</text>
           </view>
-        </view>
-        <view class="compare-btn" catchtap="addToCompare" data-item="{{item}}">
-          <image class="compare-icon" src="/images/compare-icon.png" mode="aspectFit"></image>
+          <view class="university-tags">
+            <text class="tag tag-level" wx:if="{{item.level}}">{{item.level}}</text>
+            <text class="tag tag-nature" wx:if="{{item.schoolType}}">{{item.schoolType}}</text>
+          </view>
         </view>
       </view>
       

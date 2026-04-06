@@ -209,10 +209,22 @@ Page({
     });
   },
 
+  goToAssessment() {
+    wx.navigateTo({
+      url: '/pages/assessment/assessment'
+    });
+  },
+
+  goToVolunteer() {
+    wx.navigateTo({
+      url: '/pages/volunteer/volunteer'
+    });
+  },
+
   goToUniversityDetail(e) {
     const id = e.currentTarget.dataset.id;
     wx.navigateTo({
-      url: `/pages/university/detail?id=${id}`
+      url: `/packageB/pages/university/detail?id=${id}`
     });
   },
 

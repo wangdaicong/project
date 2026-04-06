@@ -1,0 +1,88 @@
+<view class="container">
+  <!-- 顶部筛选 -->
+  <view class="filter-bar">
+    <view class="filter-item">
+      <text class="filter-label">科类：</text>
+      <picker mode="selector" range="{{categories}}" value="{{categoryIndex}}" bindchange="onCategoryChange">
+        <view class="picker">{{categories[categoryIndex]}}</view>
+      </picker>
+    </view>
+    <view class="filter-info">
+      <text>📍 {{province}}</text>
+    </view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+
+  <!-- 图表区域 -->
+  <view class="chart-section" wx:if="{{hasData && !loading}}">
+    <view class="section-title">📈 分数线趋势图</view>
+    <view class="chart-container">
+      <canvas canvas-id="scoreChart" id="scoreChart" class="chart-canvas"></canvas>
+    </view>
+    
+    <!-- 图例 -->
+    <view class="legend">
+      <view class="legend-item">
+        <view class="legend-color" style="background: #52c41a;"></view>
+        <text>最低分</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-color" style="background: #1890ff;"></view>
+        <text>平均分</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-color" style="background: #ff4d4f;"></view>
+        <text>最高分</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 数据列表 -->
+  <view class="data-section" wx:if="{{hasData && !loading}}">
+    <view class="section-title">📊 历年数据</view>
+    <view class="data-list">
+      <view class="data-item" wx:for="{{scoreList}}" wx:key="id" bindtap="showDetail" data-index="{{index}}">
+        <view class="data-year">{{item.year}}年</view>
+        <view class="data-scores">
+          <view class="score-item">
+            <text class="score-label">最低</text>
+            <text class="score-value min">{{item.minScore}}</text>
+          </view>
+          <view class="score-item">
+            <text class="score-label">平均</text>
+            <text class="score-value avg">{{item.avgScore}}</text>
+          </view>
+          <view class="score-item">
+            <text class="score-label">最高</text>
+            <text class="score-value max">{{item.maxScore}}</text>
+          </view>
+        </view>
+        <view class="data-meta">
+          <text>位次：{{item.minRank}}</text>
+          <text>招生：{{item.enrollmentCount}}人</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!hasData && !loading}}">
+    <view class="empty-icon">📊</view>
+    <view class="empty-title">暂无数据</view>
+    <view class="empty-desc">该院校暂无{{province}}{{category}}的分数线数据</view>
+  </view>
+
+  <!-- 说明 -->
+  <view class="tips" wx:if="{{hasData && !loading}}">
+    <view class="tips-title">💡 数据说明</view>
+    <view class="tips-content">
+      <text>• 数据来源于各省教育考试院公布的历年录取数据</text>
+      <text>• 分数线仅供参考，实际录取以当年公布为准</text>
+      <text>• 点击数据卡片可查看详细信息</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,114 @@
+<!--packageB/pages/major/detail.wxml-->
+<view class="container">
+  <!-- 专业头部 -->
+  <view class="major-header card">
+    <view class="major-name">{{major.name}}</view>
+    <view class="major-meta">
+      <text class="meta-item">{{major.category}}</text>
+      <text class="meta-divider">|</text>
+      <text class="meta-item">{{major.degree}}</text>
+      <text class="meta-divider">|</text>
+      <text class="meta-item">学制{{major.duration}}年</text>
+    </view>
+    <view class="major-tags" wx:if="{{major.tagsArray && major.tagsArray.length > 0}}">
+      <text class="tag" wx:for="{{major.tagsArray}}" wx:key="index">{{item}}</text>
+    </view>
+  </view>
+
+  <!-- Tab切换 -->
+  <view class="tabs-container">
+    <view class="tabs">
+      <view class="tab {{currentTab === 0 ? 'active' : ''}}" bindtap="switchTab" data-index="0">
+        专业介绍
+      </view>
+      <view class="tab {{currentTab === 1 ? 'active' : ''}}" bindtap="switchTab" data-index="1">
+        就业方向
+      </view>
+      <view class="tab {{currentTab === 2 ? 'active' : ''}}" bindtap="switchTab" data-index="2">
+        专业指南
+      </view>
+    </view>
+  </view>
+
+  <!-- Tab内容0：专业介绍 -->
+  <view class="tab-content" wx:if="{{currentTab === 0}}">
+    <view class="section card">
+      <view class="section-title">📖 专业简介</view>
+      <view class="section-content">{{major.introduction || '暂无简介'}}</view>
+    </view>
+
+    <view class="section card" wx:if="{{major.courses}}">
+      <view class="section-title">📚 主要课程</view>
+      <view class="section-content">{{major.courses}}</view>
+    </view>
+  </view>
+
+  <!-- Tab内容1：就业方向 -->
+  <view class="tab-content" wx:if="{{currentTab === 1}}">
+    <view class="section card">
+      <view class="section-title">💼 就业方向</view>
+      <view class="section-content">{{major.employmentDirection || '暂无就业方向信息'}}</view>
+    </view>
+
+    <view class="section card" wx:if="{{major.employmentRate}}">
+      <view class="section-title">📊 就业率</view>
+      <view class="section-content">{{major.employmentRate}}%</view>
+    </view>
+  </view>
+
+  <!-- Tab内容2：专业指南 -->
+  <view class="tab-content" wx:if="{{currentTab === 2}}">
+    <view class="section card" wx:if="{{!guide || !guide.tags || guide.tags.length === 0}}">
+      <view class="empty-tip">暂无专业指南数据</view>
+    </view>
+
+    <!-- 专业标签 -->
+    <view class="section card" wx:if="{{guide.tags && guide.tags.length > 0}}">
+      <view class="tags-section">
+        <view class="guide-tag" wx:for="{{guide.tags}}" wx:key="index">
+          {{item}}
+        </view>
+      </view>
+    </view>
+
+    <!-- 就业现实 -->
+    <view class="section card" wx:if="{{guide.employment}}">
+      <view class="section-title">💼 就业现实</view>
+      <view class="guide-card">
+        <view class="card-item">
+          <text class="label">薪资水平：</text>
+          <text class="value value-salary">{{guide.employment.salaryLevel || '未知'}}</text>
+        </view>
+        <view class="card-item">
+          <text class="label">工作强度：</text>
+          <text class="value">{{guide.employment.workIntensity || '未知'}}</text>
+        </view>
+        <view class="card-content">{{guide.employment.reality || '暂无数据'}}</view>
+      </view>
+    </view>
+
+    <!-- 考公优势 -->
+    <view class="section card" wx:if="{{guide.civilService}}">
+      <view class="section-title">🏛️ 考公优势</view>
+      <view class="section-content">{{guide.civilService}}</view>
+    </view>
+
+    <!-- 常见误解 -->
+    <view class="section card warning-card" wx:if="{{guide.misconceptions}}">
+      <view class="section-title">❌ 常见误解</view>
+      <view class="section-content">{{guide.misconceptions}}</view>
+    </view>
+
+    <!-- 考研建议 -->
+    <view class="section card" wx:if="{{guide.postgraduateNecessity}}">
+      <view class="section-title">📚 考研建议</view>
+      <view class="section-content">{{guide.postgraduateNecessity}}</view>
+    </view>
+
+    <!-- 性别倾向 -->
+    <view class="section card" wx:if="{{guide.genderPreference}}">
+      <view class="section-title">👥 适合人群</view>
+      <view class="section-content">{{guide.genderPreference}}</view>
+    </view>
+  </view>
+</view>

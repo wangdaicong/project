@@ -1,64 +1,78 @@
+<!--pages/compare/compare.wxml-->
 <view class="container">
-  <view class="header-banner card">
-    <view class="banner-title">📊 院校对比</view>
-    <view class="banner-desc">多维度对比，科学选择</view>
+  <view class="header">
+    <text class="title">院校对比</text>
   </view>
 
-  <view class="compare-list" wx:if="{{compareList.length > 0}}">
-    <view class="compare-item card" wx:for="{{compareList}}" wx:key="id">
-      <view class="item-header">
-        <image class="item-logo" src="{{item.logoUrl || '/images/default-logo.png'}}" mode="aspectFill"></image>
-        <view class="item-info">
-          <view class="item-name">{{item.name}}</view>
-          <view class="item-location">📍 {{item.province}}</view>
+  <scroll-view class="compare-table" scroll-x wx:if="{{!loading}}">
+    <view class="table">
+      <!-- 表头 -->
+      <view class="table-row header-row">
+        <view class="table-cell label-cell">对比项</view>
+        <view class="table-cell" wx:for="{{universities}}" wx:key="id">
+          {{item.name}}
         </view>
-        <view class="remove-btn" bindtap="removeItem" data-id="{{item.id}}">
-          <image class="remove-icon" src="/images/close-icon.png" mode="aspectFit"></image>
+      </view>
+
+      <!-- 基本信息 -->
+      <view class="table-row">
+        <view class="table-cell label-cell">院校层次</view>
+        <view class="table-cell" wx:for="{{universities}}" wx:key="id">
+          <text class="tag" wx:if="{{item.is_985}}">985</text>
+          <text class="tag" wx:if="{{item.is_211}}">211</text>
+          <text class="tag" wx:if="{{item.is_double_first_class}}">双一流</text>
+        </view>
+      </view>
+
+      <view class="table-row">
+        <view class="table-cell label-cell">院校类型</view>
+        <view class="table-cell" wx:for="{{universities}}" wx:key="id">
+          {{item.type}}
+        </view>
+      </view>
+
+      <view class="table-row">
+        <view class="table-cell label-cell">所在地区</view>
+        <view class="table-cell" wx:for="{{universities}}" wx:key="id">
+          {{item.province}} {{item.city}}
+        </view>
+      </view>
+
+      <!-- 分数线对比 -->
+      <view class="section-title">历年分数线</view>
+      
+      <view class="table-row">
+        <view class="table-cell label-cell">2024年最低分</view>
+        <view class="table-cell" wx:for="{{universities}}" wx:key="id">
+          <text wx:if="{{scoreLines[item.id] && scoreLines[item.id][0]}}">
+            {{scoreLines[item.id][0].min_score}}
+          </text>
+          <text wx:else class="no-data">暂无数据</text>
+        </view>
+      </view>
+
+      <view class="table-row">
+        <view class="table-cell label-cell">2024年平均分</view>
+        <view class="table-cell" wx:for="{{universities}}" wx:key="id">
+          <text wx:if="{{scoreLines[item.id] && scoreLines[item.id][0]}}">
+            {{scoreLines[item.id][0].avg_score}}
+          </text>
+          <text wx:else class="no-data">暂无数据</text>
+        </view>
+      </view>
+
+      <view class="table-row">
+        <view class="table-cell label-cell">查看趋势</view>
+        <view class="table-cell" wx:for="{{universities}}" wx:key="id">
+          <button class="trend-btn" bindtap="viewTrend" data-id="{{item.id}}">
+            查看
+          </button>
         </view>
       </view>
     </view>
+  </scroll-view>
 
-    <button class="btn-primary compare-btn" bindtap="startCompare" wx:if="{{compareList.length >= 2}}">
-      开始对比 ({{compareList.length}})
-    </button>
-  </view>
-
-  <view class="empty-state" wx:else>
-    <image class="empty-image" src="/images/empty-compare.png" mode="aspectFit"></image>
-    <view class="empty-title">暂无对比院校</view>
-    <view class="empty-desc">在院校列表中点击对比按钮添加</view>
-    <button class="btn-primary" bindtap="goToSearch">去查找院校</button>
-  </view>
-
-  <view class="compare-result" wx:if="{{showResult}}">
-    <view class="result-section card">
-      <view class="section-title">基本信息对比</view>
-      <view class="compare-table">
-        <view class="table-row">
-          <view class="table-label">院校名称</view>
-          <view class="table-cell" wx:for="{{compareList}}" wx:key="id">{{item.name}}</view>
-        </view>
-        <view class="table-row">
-          <view class="table-label">所在地区</view>
-          <view class="table-cell" wx:for="{{compareList}}" wx:key="id">{{item.province}}</view>
-        </view>
-        <view class="table-row">
-          <view class="table-label">办学层次</view>
-          <view class="table-cell" wx:for="{{compareList}}" wx:key="id">{{item.level}}</view>
-        </view>
-        <view class="table-row">
-          <view class="table-label">学校类型</view>
-          <view class="table-cell" wx:for="{{compareList}}" wx:key="id">{{item.type}}</view>
-        </view>
-        <view class="table-row">
-          <view class="table-label">全国排名</view>
-          <view class="table-cell" wx:for="{{compareList}}" wx:key="id">{{item.ranking}}</view>
-        </view>
-        <view class="table-row">
-          <view class="table-label">录取分数</view>
-          <view class="table-cell" wx:for="{{compareList}}" wx:key="id">{{item.minScore}}-{{item.maxScore}}</view>
-        </view>
-      </view>
-    </view>
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
   </view>
 </view>

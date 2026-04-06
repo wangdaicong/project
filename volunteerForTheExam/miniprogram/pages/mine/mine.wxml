@@ -1,14 +1,16 @@
 <view class="container">
   <!-- 用户信息卡片 -->
   <view class="user-card">
-    <view class="user-avatar">👤</view>
+    <view class="user-avatar">
+      <text>🎓</text>
+    </view>
     <view class="user-info">
-      <view class="user-name">{{hasScore ? '考生' : '未设置'}}</view>
+      <view class="user-name">高考志愿助手</view>
       <view class="user-score" wx:if="{{hasScore}}">
         {{userScore}}分 · {{userProvince}}
       </view>
       <view class="user-tip" wx:else>
-        <text bindtap="goToHome">点击设置分数</text>
+        <text bindtap="goToHome">点击设置分数和省份</text>
       </view>
     </view>
     <view class="edit-btn" bindtap="goToHome">
@@ -44,23 +46,6 @@
         <view class="menu-desc">查看历史记录</view>
       </view>
       <view class="menu-arrow">→</view>
-    </view>
-  </view>
-
-  <!-- 数据分析 -->
-  <view class="section-title">📈 数据统计</view>
-  <view class="stats-grid">
-    <view class="stat-item">
-      <view class="stat-value">{{viewCount}}</view>
-      <view class="stat-label">浏览次数</view>
-    </view>
-    <view class="stat-item">
-      <view class="stat-value">{{favoriteCount}}</view>
-      <view class="stat-label">收藏数量</view>
-    </view>
-    <view class="stat-item">
-      <view class="stat-value">{{compareCount}}</view>
-      <view class="stat-label">对比院校</view>
     </view>
   </view>
 

@@ -1,0 +1,191 @@
+<view class="container">
+  <!-- 官方查询入口 -->
+  <view class="official-notice">
+    <view class="notice-title">💡 权威查询</view>
+    <view class="notice-content">
+      本功能提供常见专业选科要求参考。如需查询完整、最新的院校专业选科要求，请访问：
+    </view>
+    <button class="official-btn" bindtap="openOfficialSite">
+      广东省教育考试院官方查询系统
+    </button>
+  </view>
+
+  <view class="tabs">
+    <view class="tab {{activeTab === 0 ? 'active' : ''}}" bindtap="switchTab" data-index="0">
+      按选科查询
+    </view>
+    <view class="tab {{activeTab === 1 ? 'active' : ''}}" bindtap="switchTab" data-index="1">
+      按专业查询
+    </view>
+    <view class="tab {{activeTab === 2 ? 'active' : ''}}" bindtap="switchTab" data-index="2">
+      按高校查询
+    </view>
+  </view>
+
+  <!-- 按选科查询 -->
+  <view class="query-panel" wx:if="{{activeTab === 0}}">
+    <view class="form-section">
+      <view class="form-label">高考年份</view>
+      <picker mode="selector" range="{{years}}" value="{{yearIndex}}" bindchange="onYearChange">
+        <view class="picker">{{years[yearIndex]}}</view>
+      </picker>
+    </view>
+
+    <view class="form-section">
+      <view class="form-label">高考所在地</view>
+      <picker mode="selector" range="{{provinces}}" value="{{provinceIndex}}" bindchange="onProvinceChange">
+        <view class="picker">{{provinces[provinceIndex]}}</view>
+      </picker>
+    </view>
+
+    <view class="form-section">
+      <view class="form-label">选科组合</view>
+      <view class="subject-grid">
+        <view class="subject-item {{item.selected ? 'selected' : ''}}" 
+              wx:for="{{subjects}}" 
+              wx:key="index"
+              bindtap="toggleSubject" 
+              data-index="{{index}}">
+          {{item.name}}
+        </view>
+      </view>
+      <view class="selected-subjects">
+        已选：{{selectedSubjectsText || '请选择3门科目'}}
+      </view>
+    </view>
+
+    <view class="form-section">
+      <view class="form-label">院校性质</view>
+      <view class="filter-tags">
+        <view class="tag {{universityType === '' ? 'active' : ''}}" bindtap="selectUniversityType" data-type="">全部</view>
+        <view class="tag {{universityType === '公办' ? 'active' : ''}}" bindtap="selectUniversityType" data-type="公办">公办</view>
+        <view class="tag {{universityType === '民办' ? 'active' : ''}}" bindtap="selectUniversityType" data-type="民办">民办</view>
+      </view>
+    </view>
+
+    <button class="query-btn" bindtap="queryBySubjects">查询</button>
+  </view>
+
+  <!-- 按专业查询 -->
+  <view class="query-panel" wx:if="{{activeTab === 1}}">
+    <view class="form-section">
+      <view class="form-label">专业层次</view>
+      <picker mode="selector" range="{{degreeLevels}}" value="{{degreeLevelIndex}}" bindchange="onDegreeLevelChange">
+        <view class="picker">{{degreeLevels[degreeLevelIndex]}}</view>
+      </picker>
+    </view>
+
+    <view class="form-section">
+      <view class="form-label">专业门类</view>
+      <picker mode="selector" range="{{majorCategories}}" value="{{majorCategoryIndex}}" bindchange="onMajorCategoryChange">
+        <view class="picker">{{majorCategories[majorCategoryIndex] || '请选择'}}</view>
+      </picker>
+    </view>
+
+    <view class="form-section">
+      <view class="form-label">专业</view>
+      <picker mode="selector" range="{{majors}}" value="{{majorIndex}}" bindchange="onMajorChange">
+        <view class="picker">{{majors[majorIndex] || '请选择'}}</view>
+      </picker>
+    </view>
+
+    <button class="query-btn" bindtap="queryByMajor">查询</button>
+  </view>
+
+  <!-- 按高校查询 -->
+  <view class="query-panel" wx:if="{{activeTab === 2}}">
+    <view class="form-section">
+      <view class="form-label">院校名称</view>
+      <input class="input" placeholder="请输入院校名称" value="{{universityName}}" bindinput="onUniversityNameInput"/>
+    </view>
+
+    <button class="query-btn" bindtap="queryByUniversity">查询</button>
+  </view>
+
+  <!-- 查询结果 -->
+  <view class="results" wx:if="{{queried && (canApplyCount > 0 || cannotApplyCount > 0)}}">
+    <!-- 结果统计 -->
+    <view class="result-summary">
+      <view class="summary-item can">
+        <text class="count">{{canApplyCount}}</text>
+        <text class="label">可报考专业</text>
+      </view>
+      <view class="summary-item cannot">
+        <text class="count">{{cannotApplyCount}}</text>
+        <text class="label">不可报考专业</text>
+      </view>
+    </view>
+
+    <!-- 切换按钮 -->
+    <view class="result-tabs">
+      <view class="result-tab {{showCanApply ? 'active' : ''}}" 
+            bindtap="toggleResultType" 
+            data-type="can">
+        可报考（{{canApplyCount}}）
+      </view>
+      <view class="result-tab {{!showCanApply ? 'active' : ''}}" 
+            bindtap="toggleResultType" 
+            data-type="cannot">
+        不可报考（{{cannotApplyCount}}）
+      </view>
+    </view>
+
+    <!-- 专业门类统计 -->
+    <view class="category-stats" wx:if="{{showCanApply && categoryCount}}">
+      <view class="stats-title">涉及专业（专业类）：</view>
+      <view class="stats-content">
+        <text wx:for="{{Object.keys(categoryCount)}}" wx:key="index" class="category-tag">
+          {{item}}（{{categoryCount[item]}}）
+        </text>
+      </view>
+    </view>
+
+    <!-- 可报考专业列表 -->
+    <view class="result-list" wx:if="{{showCanApply}}">
+      <view class="result-item" wx:for="{{canApplyResults}}" wx:key="id">
+        <view class="result-title">
+          <text class="major-name">{{item.majorName}}</text>
+          <text class="can-tag">可报考</text>
+        </view>
+        <view class="result-info">
+          <text class="label">专业门类：</text>
+          <text>{{item.majorCategory}}</text>
+        </view>
+        <view class="result-info">
+          <text class="label">选科要求：</text>
+          <text class="requirement">{{item.subjectRequirement || '不限'}}</text>
+        </view>
+        <view class="result-info" wx:if="{{item.universityName}}">
+          <text class="label">院校：</text>
+          <text>{{item.universityName}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 不可报考专业列表 -->
+    <view class="result-list" wx:if="{{!showCanApply}}">
+      <view class="result-item" wx:for="{{cannotApplyResults}}" wx:key="id">
+        <view class="result-title">
+          <text class="major-name">{{item.majorName}}</text>
+          <text class="cannot-tag">不可报考</text>
+        </view>
+        <view class="result-info">
+          <text class="label">专业门类：</text>
+          <text>{{item.majorCategory}}</text>
+        </view>
+        <view class="result-info">
+          <text class="label">选科要求：</text>
+          <text class="requirement-not">{{item.subjectRequirement}}</text>
+        </view>
+        <view class="result-info" wx:if="{{item.universityName}}">
+          <text class="label">院校：</text>
+          <text>{{item.universityName}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{queried && canApplyCount === 0 && cannotApplyCount === 0}}">
+    <text>暂无查询结果</text>
+  </view>
+</view>

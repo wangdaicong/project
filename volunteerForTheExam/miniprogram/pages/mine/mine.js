@@ -1,4 +1,5 @@
 const app = getApp();
+const request = require('../../utils/request');
 
 Page({
   data: {
@@ -6,14 +7,14 @@ Page({
     userScore: null,
     userProvince: null,
     compareCount: 0,
-    favoriteCount: 0,
-    viewCount: 0
+    favoriteCount: 0
   },
 
   onShow() {
     this.loadUserInfo();
     this.loadStats();
   },
+
 
   loadUserInfo() {
     const score = app.globalData.userScore;
@@ -28,10 +29,10 @@ Page({
 
   loadStats() {
     const compareList = app.globalData.compareList || [];
+    const favorites = wx.getStorageSync('favorites') || [];
     this.setData({
       compareCount: compareList.length,
-      favoriteCount: wx.getStorageSync('favoriteCount') || 0,
-      viewCount: wx.getStorageSync('viewCount') || 0
+      favoriteCount: favorites.length
     });
   },
 
@@ -42,15 +43,14 @@ Page({
   },
 
   goToCompare() {
-    wx.switchTab({
+    wx.navigateTo({
       url: '/pages/compare/compare'
     });
   },
 
   goToFavorite() {
-    wx.showToast({
-      title: '功能开发中',
-      icon: 'none'
+    wx.navigateTo({
+      url: '/pages/favorite/favorite'
     });
   },
 

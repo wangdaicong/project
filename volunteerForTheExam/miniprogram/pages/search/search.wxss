@@ -117,16 +117,16 @@
 
 .university-header {
   display: flex;
-  margin-bottom: 20rpx;
-  position: relative;
+  align-items: flex-start;
 }
 
 .university-logo {
-  width: 120rpx;
-  height: 120rpx;
+  width: 100rpx;
+  height: 100rpx;
   border-radius: 12rpx;
   margin-right: 20rpx;
   background: #F5F7FA;
+  flex-shrink: 0;
 }
 
 .university-info {
@@ -137,13 +137,29 @@
   font-size: 32rpx;
   font-weight: 600;
   color: #2C3E50;
-  margin-bottom: 10rpx;
+  margin-bottom: 8rpx;
 }
 
-.university-location {
+.university-meta {
+  display: flex;
+  align-items: center;
   font-size: 24rpx;
   color: #7F8C8D;
   margin-bottom: 10rpx;
+  flex-wrap: wrap;
+}
+
+.meta-location {
+  color: #E91E63;
+}
+
+.meta-divider {
+  margin: 0 8rpx;
+  color: #D0D0D0;
+}
+
+.meta-supervisor {
+  color: #7F8C8D;
 }
 
 .university-tags {
@@ -152,22 +168,20 @@
   gap: 10rpx;
 }
 
-.compare-btn {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 60rpx;
-  height: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #F5F7FA;
-  border-radius: 50%;
+.tag-level {
+  background: #E3F2FD;
+  color: #2196F3;
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
+  font-size: 22rpx;
 }
 
-.compare-icon {
-  width: 32rpx;
-  height: 32rpx;
+.tag-nature {
+  background: #F3E5F5;
+  color: #9C27B0;
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
+  font-size: 22rpx;
 }
 
 .university-features {

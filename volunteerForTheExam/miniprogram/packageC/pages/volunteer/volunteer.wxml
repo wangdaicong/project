@@ -1,0 +1,137 @@
+<view class="container">
+  <!-- 步骤指示器 -->
+  <view class="steps">
+    <view class="step {{step >= 1 ? 'active' : ''}}">
+      <view class="step-number">1</view>
+      <view class="step-title">基本信息</view>
+    </view>
+    <view class="step-line {{step >= 2 ? 'active' : ''}}"></view>
+    <view class="step {{step >= 2 ? 'active' : ''}}">
+      <view class="step-number">2</view>
+      <view class="step-title">选择志愿</view>
+    </view>
+    <view class="step-line {{step >= 3 ? 'active' : ''}}"></view>
+    <view class="step {{step >= 3 ? 'active' : ''}}">
+      <view class="step-number">3</view>
+      <view class="step-title">分析结果</view>
+    </view>
+  </view>
+
+  <!-- 步骤1：基本信息 -->
+  <view class="step-content" wx:if="{{step === 1}}">
+    <view class="card">
+      <view class="card-title">📝 填写基本信息</view>
+      
+      <view class="form-item">
+        <view class="label">考生姓名</view>
+        <input class="input" placeholder="请输入姓名" value="{{studentName}}" 
+               data-field="studentName" bindinput="onInputChange" />
+      </view>
+      
+      <view class="form-item">
+        <view class="label">所在省份</view>
+        <picker mode="selector" range="{{provinces}}" value="{{provinces.indexOf(province)}}" 
+                bindchange="onProvinceChange">
+          <view class="picker">{{province}}</view>
+        </picker>
+      </view>
+      
+      <view class="form-item">
+        <view class="label">高考分数</view>
+        <input class="input" type="number" placeholder="请输入分数" value="{{score}}" 
+               data-field="score" bindinput="onInputChange" />
+      </view>
+      
+      <view class="form-item">
+        <view class="label">科类</view>
+        <picker mode="selector" range="{{categories}}" value="{{categories.indexOf(category)}}" 
+                bindchange="onCategoryChange">
+          <view class="picker">{{category}}</view>
+        </picker>
+      </view>
+      
+      <view class="form-item">
+        <view class="label">位次（选填）</view>
+        <input class="input" type="number" placeholder="请输入位次" value="{{rankPosition}}" 
+               data-field="rankPosition" bindinput="onInputChange" />
+      </view>
+    </view>
+    
+    <view class="btn-group">
+      <button class="btn btn-primary" bindtap="nextStep">下一步</button>
+    </view>
+  </view>
+
+  <!-- 步骤2：选择志愿 -->
+  <view class="step-content" wx:if="{{step === 2}}">
+    <view class="card">
+      <view class="card-title">🎯 已选志愿（{{selectedUniversities.length}}个）</view>
+      
+      <view class="empty-tip" wx:if="{{selectedUniversities.length === 0}}">
+        暂无志愿，请点击下方按钮添加
+      </view>
+      
+      <view class="volunteer-list">
+        <view class="volunteer-item" wx:for="{{selectedUniversities}}" wx:key="index">
+          <view class="volunteer-order">{{index + 1}}</view>
+          <view class="volunteer-info">
+            <view class="volunteer-name">{{item.universityName}}</view>
+            <view class="volunteer-tag {{item.riskLevel}}">
+              {{item.riskLevel === 'rush' ? '冲刺' : item.riskLevel === 'stable' ? '稳妥' : '保底'}}
+            </view>
+          </view>
+          <view class="volunteer-actions">
+            <view class="action-btn" bindtap="moveUp" data-index="{{index}}" wx:if="{{index > 0}}">↑</view>
+            <view class="action-btn" bindtap="moveDown" data-index="{{index}}" 
+                  wx:if="{{index < selectedUniversities.length - 1}}">↓</view>
+            <view class="action-btn delete" bindtap="removeVolunteer" data-index="{{index}}">×</view>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <view class="btn-group">
+      <button class="btn btn-secondary" bindtap="showRecommendations">添加志愿</button>
+      <button class="btn btn-secondary" bindtap="prevStep">上一步</button>
+      <button class="btn btn-primary" bindtap="nextStep">提交分析</button>
+    </view>
+  </view>
+
+  <!-- 推荐院校弹窗 -->
+  <view class="modal" wx:if="{{showRecommendModal}}" bindtap="hideRecommendModal">
+    <view class="modal-content" catchtap="{{null}}">
+      <view class="modal-header">
+        <view class="modal-title">推荐院校</view>
+        <view class="modal-close" bindtap="hideRecommendModal">×</view>
+      </view>
+      
+      <view class="filter-tabs">
+        <view class="filter-tab {{currentRecommendType === item.value ? 'active' : ''}}" 
+              wx:for="{{recommendTypes}}" wx:key="value"
+              bindtap="onRecommendTypeChange" data-value="{{item.value}}">
+          {{item.label}}
+        </view>
+      </view>
+      
+      <scroll-view class="recommend-list" scroll-y>
+        <view class="recommend-item" 
+              wx:for="{{recommendations}}" wx:key="index"
+              wx:if="{{currentRecommendType === 'all' || item.recommendType === currentRecommendType}}"
+              bindtap="selectUniversity" 
+              data-university="{{item.university}}"
+              data-recommendtype="{{item.recommendType}}">
+          <view class="recommend-info">
+            <view class="recommend-name">{{item.university.name}}</view>
+            <view class="recommend-detail">
+              <text class="recommend-score">平均分: {{item.avgMinScore}}</text>
+              <text class="recommend-diff">分差: {{item.scoreDiff > 0 ? '+' : ''}}{{item.scoreDiff}}</text>
+            </view>
+          </view>
+          <view class="recommend-tag {{item.recommendType}}">
+            {{item.recommendType === 'rush' ? '冲刺' : item.recommendType === 'stable' ? '稳妥' : '保底'}}
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

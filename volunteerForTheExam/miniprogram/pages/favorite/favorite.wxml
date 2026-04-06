@@ -1,0 +1,40 @@
+<!--pages/favorite/favorite.wxml-->
+<view class="container">
+  <view class="header">
+    <text class="title">我的收藏</text>
+    <button class="compare-btn" bindtap="compareUniversities" wx:if="{{favorites.length >= 2}}">
+      院校对比
+    </button>
+  </view>
+
+  <view class="favorite-list" wx:if="{{!loading && favorites.length > 0}}">
+    <view class="favorite-item" wx:for="{{favorites}}" wx:key="id">
+      <view class="university-info" bindtap="viewDetail" data-id="{{item.id}}">
+        <view class="university-name">{{item.name}}</view>
+        <view class="university-tags">
+          <text class="tag" wx:if="{{item.is_985}}">985</text>
+          <text class="tag" wx:if="{{item.is_211}}">211</text>
+          <text class="tag" wx:if="{{item.is_double_first_class}}">双一流</text>
+          <text class="tag location">{{item.province}}</text>
+        </view>
+        <view class="university-type">{{item.type}}</view>
+      </view>
+      
+      <view class="actions">
+        <button class="action-btn remove" bindtap="removeFavorite" data-id="{{item.id}}">
+          取消收藏
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && favorites.length === 0}}">
+    <image class="empty-icon" src="/images/empty.png" />
+    <text class="empty-text">还没有收藏任何院校</text>
+    <button class="go-search" bindtap="goSearch">去搜索</button>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

@@ -1,0 +1,152 @@
+<view class="container">
+  <!-- 头部信息 -->
+  <view class="header">
+    <image class="university-logo" src="{{university.logoUrl || '/images/default-university.png'}}" mode="aspectFill"/>
+    <view class="header-info">
+      <view class="university-name">{{university.schoolName}}</view>
+      <view class="tags">
+        <text class="tag tag-985" wx:if="{{university.is985}}">985</text>
+        <text class="tag tag-211" wx:if="{{university.is211}}">211</text>
+        <text class="tag tag-double" wx:if="{{university.isDoubleFirstClass}}">双一流</text>
+      </view>
+      <view class="location">{{university.location}} · {{university.schoolLevel}}</view>
+    </view>
+    <button class="collect-btn" bindtap="toggleCollect">
+      <text class="{{isCollected ? 'collected' : ''}}">{{isCollected ? '已收藏' : '收藏'}}</text>
+    </button>
+  </view>
+
+  <!-- Tab导航 -->
+  <view class="tabs">
+    <view class="tab-item {{currentTab === 0 ? 'active' : ''}}" bindtap="switchTab" data-index="0">院校简介</view>
+    <view class="tab-item {{currentTab === 1 ? 'active' : ''}}" bindtap="switchTab" data-index="1">开设专业</view>
+  </view>
+
+  <!-- 内容区域 -->
+  <scroll-view class="content" scroll-y>
+    <!-- 院校简介 -->
+    <view wx:if="{{currentTab === 0}}">
+      <view class="section">
+        <view class="section-title">基本信息</view>
+        <view class="intro-icons">
+          <view class="intro-icon">
+            <text class="icon">📅</text>
+            <text class="label">建校时间</text>
+            <text class="value">{{university.foundedYear || '-'}}</text>
+          </view>
+          <view class="intro-icon">
+            <text class="icon">🏛️</text>
+            <text class="label">办学性质</text>
+            <text class="value">{{university.nature || '公办'}}</text>
+          </view>
+          <view class="intro-icon">
+            <text class="icon">🎓</text>
+            <text class="label">办学层次</text>
+            <text class="value">{{university.schoolLevel || '本科'}}</text>
+          </view>
+          <view class="intro-icon">
+            <text class="icon">🏢</text>
+            <text class="label">主管部门</text>
+            <text class="value">{{university.supervisor || '-'}}</text>
+          </view>
+          <view class="intro-icon">
+            <text class="icon">📍</text>
+            <text class="label">所在地</text>
+            <text class="value">{{university.location}}</text>
+          </view>
+          <view class="intro-icon">
+            <text class="icon">🎯</text>
+            <text class="label">硕士点</text>
+            <text class="value">{{university.masterPoints || 0}}个</text>
+          </view>
+          <view class="intro-icon">
+            <text class="icon">🎓</text>
+            <text class="label">博士点</text>
+            <text class="value">{{university.doctorPoints || 0}}个</text>
+          </view>
+          <view class="intro-icon">
+            <text class="icon">📊</text>
+            <text class="label">综合排名</text>
+            <text class="value">{{university.ranking ? '第' + university.ranking + '名' : '-'}}</text>
+          </view>
+        </view>
+        
+        <view class="intro-text">
+          <text class="{{showFullIntro ? 'full' : 'ellipsis'}}">{{university.introduction || '暂无简介'}}</text>
+          <text class="more-btn" bindtap="toggleIntro" wx:if="{{university.introduction && university.introduction.length > 100}}">
+            {{showFullIntro ? '收起' : '查看更多'}}
+          </text>
+        </view>
+      </view>
+
+      <!-- 联系方式 -->
+      <view class="section">
+        <view class="section-title">联系方式</view>
+        <view class="contact-item">
+          <text class="label">官方电话：</text>
+          <text class="value">{{university.phone || '-'}}</text>
+        </view>
+        <view class="contact-item">
+          <text class="label">官方网站：</text>
+          <text class="value link" bindtap="openWebsite">{{university.website || '-'}}</text>
+        </view>
+        <view class="contact-item">
+          <text class="label">院校地址：</text>
+          <text class="value">{{university.address || '-'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 开设专业 -->
+    <view wx:if="{{currentTab === 1}}">
+      <!-- 学科筛选 -->
+      <view class="category-filter">
+        <scroll-view class="category-scroll" scroll-x>
+          <view class="category-item {{selectedCategory === '' ? 'active' : ''}}" 
+                bindtap="selectCategory" 
+                data-category="">
+            全部
+          </view>
+          <view class="category-item {{selectedCategory === item ? 'active' : ''}}" 
+                wx:for="{{categories}}" 
+                wx:key="*this"
+                bindtap="selectCategory" 
+                data-category="{{item}}">
+            {{item}}
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 专业列表 -->
+      <view class="section">
+        <view class="major-stats">
+          <text>共开设 {{majors.length}} 个专业</text>
+        </view>
+        
+        <view class="major-list">
+          <view class="major-item" 
+                wx:for="{{majors}}" 
+                wx:key="id"
+                bindtap="goToMajorDetail"
+                data-id="{{item.majorId}}">
+            <view class="major-info">
+              <view class="major-name">{{item.majorName}}</view>
+              <view class="major-meta">
+                <text class="meta-item">{{item.category}}</text>
+                <text class="separator">|</text>
+                <text class="meta-item">{{item.degreeLevel || '本科'}}</text>
+                <text class="separator">|</text>
+                <text class="meta-item">{{item.duration || '4年'}}</text>
+              </view>
+            </view>
+            <view class="major-badge" wx:if="{{item.isFeatured}}">
+              <text class="badge-text">{{item.featureLevel || '特色'}}</text>
+            </view>
+          </view>
+          
+          <view class="empty" wx:if="{{majors.length === 0}}">暂无专业数据</view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

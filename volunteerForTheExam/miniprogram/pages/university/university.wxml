@@ -1,43 +1,149 @@
 <view class="container">
   <!-- 顶部搜索 -->
   <view class="search-box">
-    <input class="search-input" placeholder="搜索院校名称" bindinput="onSearchInput" value="{{keyword}}" />
+    <input class="search-input" placeholder="请输入院校名称" bindinput="onSearchInput" value="{{keyword}}" />
     <button class="search-btn" bindtap="onSearch">搜索</button>
   </view>
 
-  <!-- 筛选条件 -->
+  <!-- 筛选按钮栏 -->
   <view class="filter-bar">
-    <view class="filter-item" bindtap="toggleFilter">
-      <text>筛选</text>
+    <text class="filter-label">筛选</text>
+    <view class="filter-toggle" bindtap="toggleFilter">
       <text class="arrow">{{showFilter ? '▲' : '▼'}}</text>
     </view>
   </view>
 
   <!-- 筛选面板 -->
   <view class="filter-panel" wx:if="{{showFilter}}">
-    <view class="filter-grid">
-      <view class="filter-item-wrapper">
-        <text class="filter-label">院校分类</text>
-        <picker mode="selector" range="{{levels}}" value="{{levelIndex}}" bindchange="onLevelChange">
-          <view class="picker">{{levels[levelIndex]}}</view>
-        </picker>
-      </view>
-      <view class="filter-item-wrapper">
-        <text class="filter-label">院校类型</text>
-        <picker mode="selector" range="{{types}}" value="{{typeIndex}}" bindchange="onTypeChange">
-          <view class="picker">{{types[typeIndex]}}</view>
-        </picker>
-      </view>
-      <view class="filter-item-wrapper">
-        <text class="filter-label">所在省份</text>
-        <picker mode="selector" range="{{provinces}}" value="{{provinceIndex}}" bindchange="onProvinceChange">
-          <view class="picker">{{provinces[provinceIndex]}}</view>
-        </picker>
+    <view class="filter-category" bindtap="showProvincePopup">
+      <text class="category-label">省份/所在地</text>
+      <view class="category-value">
+        <text>{{provinces[provinceIndex]}}</text>
+        <text class="category-arrow">›</text>
       </view>
     </view>
+    <view class="filter-category" bindtap="showSupervisorPopup">
+      <text class="category-label">主管部门/类别</text>
+      <view class="category-value">
+        <text>{{supervisors[supervisorIndex]}}</text>
+        <text class="category-arrow">›</text>
+      </view>
+    </view>
+    <view class="filter-category" bindtap="showLevelPopup">
+      <text class="category-label">办学层次</text>
+      <view class="category-value">
+        <text>{{levels[levelIndex]}}</text>
+        <text class="category-arrow">›</text>
+      </view>
+    </view>
+    <view class="filter-category" bindtap="showNaturePopup">
+      <text class="category-label">院校特性</text>
+      <view class="category-value">
+        <text>{{natures[natureIndex]}}</text>
+        <text class="category-arrow">›</text>
+      </view>
+    </view>
+    <view class="filter-category" bindtap="showSpecialPopup">
+      <text class="category-label">特殊标签</text>
+      <view class="category-value">
+        <text>{{specialTags[specialIndex]}}</text>
+        <text class="category-arrow">›</text>
+      </view>
+    </view>
+    
     <view class="filter-actions">
       <button class="filter-btn reset-btn" bindtap="onResetFilter">重置</button>
-      <button class="filter-btn query-btn" bindtap="onApplyFilter">查询</button>
+      <button class="filter-btn confirm-btn" bindtap="onConfirmFilter">确定</button>
+    </view>
+  </view>
+
+  <!-- 省份/所在地弹窗 -->
+  <view class="popup-mask" wx:if="{{showProvinceSheet}}" bindtap="hideAllPopup"></view>
+  <view class="popup-sheet {{showProvinceSheet ? 'show' : ''}}">
+    <view class="popup-header">
+      <text class="popup-title">省份/所在地</text>
+      <text class="popup-close" bindtap="hideAllPopup">×</text>
+    </view>
+    <view class="popup-content">
+      <view class="popup-option {{provinceIndex === index ? 'active' : ''}}"
+            wx:for="{{provinces}}"
+            wx:key="index"
+            bindtap="onProvinceChange"
+            data-index="{{index}}">
+        {{item}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 主管部门/类别弹窗 -->
+  <view class="popup-mask" wx:if="{{showSupervisorSheet}}" bindtap="hideAllPopup"></view>
+  <view class="popup-sheet {{showSupervisorSheet ? 'show' : ''}}">
+    <view class="popup-header">
+      <text class="popup-title">主管部门/类别</text>
+      <text class="popup-close" bindtap="hideAllPopup">×</text>
+    </view>
+    <view class="popup-content">
+      <view class="popup-option {{supervisorIndex === index ? 'active' : ''}}"
+            wx:for="{{supervisors}}"
+            wx:key="index"
+            bindtap="onSupervisorChange"
+            data-index="{{index}}">
+        {{item}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 办学层次弹窗 -->
+  <view class="popup-mask" wx:if="{{showLevelSheet}}" bindtap="hideAllPopup"></view>
+  <view class="popup-sheet {{showLevelSheet ? 'show' : ''}}">
+    <view class="popup-header">
+      <text class="popup-title">办学层次</text>
+      <text class="popup-close" bindtap="hideAllPopup">×</text>
+    </view>
+    <view class="popup-content">
+      <view class="popup-option {{levelIndex === index ? 'active' : ''}}"
+            wx:for="{{levels}}"
+            wx:key="index"
+            bindtap="onLevelChange"
+            data-index="{{index}}">
+        {{item}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 院校特性弹窗 -->
+  <view class="popup-mask" wx:if="{{showNatureSheet}}" bindtap="hideAllPopup"></view>
+  <view class="popup-sheet {{showNatureSheet ? 'show' : ''}}">
+    <view class="popup-header">
+      <text class="popup-title">院校特性</text>
+      <text class="popup-close" bindtap="hideAllPopup">×</text>
+    </view>
+    <view class="popup-content">
+      <view class="popup-option {{natureIndex === index ? 'active' : ''}}"
+            wx:for="{{natures}}"
+            wx:key="index"
+            bindtap="onNatureChange"
+            data-index="{{index}}">
+        {{item}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 特殊标签弹窗 -->
+  <view class="popup-mask" wx:if="{{showSpecialSheet}}" bindtap="hideAllPopup"></view>
+  <view class="popup-sheet {{showSpecialSheet ? 'show' : ''}}">
+    <view class="popup-header">
+      <text class="popup-title">特殊标签</text>
+      <text class="popup-close" bindtap="hideAllPopup">×</text>
+    </view>
+    <view class="popup-content">
+      <view class="popup-option {{specialIndex === index ? 'active' : ''}}"
+            wx:for="{{specialTags}}"
+            wx:key="index"
+            bindtap="onSpecialChange"
+            data-index="{{index}}">
+        {{item}}
+      </view>
     </view>
   </view>
 
@@ -50,51 +156,36 @@
   <!-- 院校列表 -->
   <view class="university-list">
     <view class="university-card" wx:for="{{universities}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
-      <view class="card-main">
-        <view class="university-header">
-          <view class="university-name-section">
-            <view class="university-name">{{item.name}}</view>
-            <view class="university-level">{{item.level}}</view>
+      <!-- 院校Logo和基本信息 -->
+      <view class="card-header">
+        <image class="university-logo" src="{{item.logoUrl || '/images/university-logo.png'}}" mode="aspectFit" />
+        <view class="header-info">
+          <view class="university-name">{{item.schoolName}}</view>
+          <view class="university-meta">
+            <text class="meta-location">📍 {{item.location}}</text>
+            <text class="meta-divider">|</text>
+            <text class="meta-supervisor">主管部门：{{item.supervisor || '未知'}}</text>
           </view>
-        </view>
-        
-        <view class="university-info">
-          <view class="info-row">
-            <text class="info-icon">📍</text>
-            <text class="info-text">{{item.province}} · {{item.city}}</text>
+          <view class="university-tags">
+            <text class="tag level-tag" wx:if="{{item.schoolLevel}}">{{item.schoolLevel}}</text>
+            <text class="tag nature-tag" wx:if="{{item.schoolType}}">{{item.schoolType}}</text>
           </view>
-          <view class="info-row">
-            <text class="info-icon">🎓</text>
-            <text class="info-text">{{item.type}}</text>
-          </view>
-          <view class="info-row" wx:if="{{item.introduction}}">
-            <text class="info-icon">📝</text>
-            <text class="info-text intro-text">{{item.introduction}}</text>
-          </view>
-        </view>
-      </view>
-      
-      <view class="card-side">
-        <view class="university-ranking" wx:if="{{item.ranking}}">
-          <text class="ranking-value">{{item.ranking}}</text>
-          <text class="ranking-label">全国排名</text>
-        </view>
-        <view class="score-info" wx:if="{{item.minScore}}">
-          <text class="score-value">{{item.minScore}}</text>
-          <text class="score-label">最低分</text>
         </view>
       </view>
     </view>
   </view>
 
-  <!-- 升学规划入口 -->
-  <view class="section-title">🎯 升学规划</view>
-  <view class="plan-card" bindtap="goToEnrollment">
-    <view class="plan-icon">📚</view>
-    <view class="plan-content">
-      <view class="plan-title">多元升学规划</view>
-      <view class="plan-desc">强基计划、综合评价、专升本等多种升学路径</view>
+  <!-- 加载提示 -->
+  <view class="load-more" wx:if="{{hasMore && universities.length > 0}}">
+    <view class="loading-tip" wx:if="{{loading}}">
+      <text class="loading-text">加载中...</text>
     </view>
-    <view class="plan-arrow">→</view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{universities.length === 0 && !loading}}">
+    <image class="empty-icon" src="/images/empty.png" mode="aspectFit" />
+    <text class="empty-text">暂无符合条件的院校</text>
+    <button class="reset-filter-btn" bindtap="onResetFilter">重置筛选条件</button>
   </view>
 </view>

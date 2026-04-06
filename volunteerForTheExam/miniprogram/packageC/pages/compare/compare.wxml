@@ -1,0 +1,79 @@
+<view class="container">
+  <view class="header-banner card">
+    <view class="banner-title">📊 院校对比</view>
+    <view class="banner-desc">多维度对比，科学选择</view>
+  </view>
+
+  <view class="compare-list" wx:if="{{compareList.length > 0}}">
+    <view class="list-header">
+      <text class="list-title">已选择 {{compareList.length}} 所院校</text>
+      <text class="clear-btn" bindtap="clearAll">清空</text>
+    </view>
+
+    <view class="compare-item card" wx:for="{{compareList}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
+      <view class="item-header">
+        <view class="item-logo">🎓</view>
+        <view class="item-info">
+          <view class="item-name">{{item.name}}</view>
+          <view class="item-meta">
+            <text class="item-location">📍 {{item.province}}</text>
+            <text class="item-level">{{item.level}}</text>
+          </view>
+        </view>
+        <view class="remove-btn" catchtap="removeItem" data-id="{{item.id}}">
+          <text class="remove-icon">×</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="action-buttons">
+      <button class="btn-primary compare-btn" bindtap="startCompare" wx:if="{{compareList.length >= 2}}">
+        开始对比 ({{compareList.length}}所)
+      </button>
+      <button class="btn-secondary" bindtap="goToSearch" wx:else>
+        继续添加院校
+      </button>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:else>
+    <image class="empty-image" src="/images/empty-compare.png" mode="aspectFit"></image>
+    <view class="empty-title">暂无对比院校</view>
+    <view class="empty-desc">在院校列表中点击对比按钮添加</view>
+    <button class="btn-primary" bindtap="goToSearch">去查找院校</button>
+  </view>
+
+  <view class="compare-result" wx:if="{{showResult && compareData}}">
+    <view class="result-header">
+      <text class="result-title">📊 对比结果</text>
+    </view>
+
+    <view class="result-section card">
+      <view class="section-title">📋 基本信息</view>
+      <view class="compare-table">
+        <view class="table-row" wx:for="{{compareData.basic}}" wx:key="label">
+          <view class="table-label">{{item.label}}</view>
+          <view class="table-cell" wx:for="{{item.values}}" wx:for-item="value" wx:key="*this">
+            {{value}}
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="result-section card">
+      <view class="section-title">📈 分数与排名</view>
+      <view class="compare-table">
+        <view class="table-row" wx:for="{{compareData.score}}" wx:key="label">
+          <view class="table-label">{{item.label}}</view>
+          <view class="table-cell" wx:for="{{item.values}}" wx:for-item="value" wx:key="*this">
+            <text class="{{value !== '-' ? 'highlight' : ''}}">{{value}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="result-tip">
+      💡 提示：点击院校卡片可查看详细信息
+    </view>
+  </view>
+</view>

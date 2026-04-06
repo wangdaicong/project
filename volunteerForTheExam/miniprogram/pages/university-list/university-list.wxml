@@ -1,0 +1,161 @@
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <input class="search-input" 
+           placeholder="搜索院校名称" 
+           value="{{keyword}}" 
+           bindinput="onKeywordInput"
+           bindconfirm="onSearch"/>
+    <button class="search-btn" bindtap="onSearch">搜索</button>
+  </view>
+
+  <!-- 筛选条件 -->
+  <view class="filter-bar">
+    <view class="filter-item" bindtap="showProvinceFilter">
+      <text>{{selectedProvince || '所在地区'}}</text>
+      <text class="arrow">▼</text>
+    </view>
+    <view class="filter-item" bindtap="showLevelFilter">
+      <text>{{selectedLevel || '院校层次'}}</text>
+      <text class="arrow">▼</text>
+    </view>
+    <view class="filter-item" bindtap="showTypeFilter">
+      <text>{{selectedType || '院校类型'}}</text>
+      <text class="arrow">▼</text>
+    </view>
+  </view>
+
+  <!-- 统计信息 -->
+  <view class="stats">
+    <text>共 {{total}} 所院校</text>
+  </view>
+
+  <!-- 院校列表 -->
+  <scroll-view class="university-list" 
+               scroll-y 
+               bindscrolltolower="loadMore"
+               lower-threshold="100">
+    <view class="university-item" 
+          wx:for="{{universities}}" 
+          wx:key="id"
+          bindtap="goToDetail"
+          data-id="{{item.id}}">
+      
+      <!-- 院校LOGO -->
+      <image class="university-logo" 
+             src="{{item.logoUrl || '/images/default-university.png'}}"
+             mode="aspectFill"/>
+      
+      <!-- 院校信息 -->
+      <view class="university-info">
+        <view class="university-name">{{item.schoolName}}</view>
+        
+        <!-- 标签 -->
+        <view class="tags">
+          <text class="tag tag-985" wx:if="{{item.is985}}">985</text>
+          <text class="tag tag-211" wx:if="{{item.is211}}">211</text>
+          <text class="tag tag-double" wx:if="{{item.isDoubleFirstClass}}">双一流</text>
+        </view>
+        
+        <!-- 基本信息 -->
+        <view class="basic-info">
+          <text class="info-item">{{item.location}}</text>
+          <text class="separator">|</text>
+          <text class="info-item">{{item.schoolLevel}}</text>
+          <text class="separator">|</text>
+          <text class="info-item">{{item.supervisor}}</text>
+        </view>
+      </view>
+      
+      <!-- 对比按钮 -->
+      <view class="compare-btn" catchtap="toggleCompare" data-id="{{item.id}}">
+        <text class="{{compareList.includes(item.id) ? 'active' : ''}}">对比</text>
+      </view>
+    </view>
+
+    <!-- 加载更多 -->
+    <view class="loading" wx:if="{{loading}}">
+      <text>加载中...</text>
+    </view>
+    
+    <!-- 没有更多 -->
+    <view class="no-more" wx:if="{{!hasMore && universities.length > 0}}">
+      <text>没有更多了</text>
+    </view>
+    
+    <!-- 空状态 -->
+    <view class="empty" wx:if="{{universities.length === 0 && !loading}}">
+      <text>暂无院校数据</text>
+    </view>
+  </scroll-view>
+
+  <!-- 对比栏 -->
+  <view class="compare-bar" wx:if="{{compareList.length > 0}}">
+    <text>已选择 {{compareList.length}} 所院校</text>
+    <button class="compare-action-btn" bindtap="goToCompare">开始对比</button>
+    <button class="clear-btn" bindtap="clearCompare">清空</button>
+  </view>
+
+  <!-- 省份筛选弹窗 -->
+  <view class="filter-modal" wx:if="{{showProvinceModal}}" bindtap="hideProvinceFilter">
+    <view class="filter-content" catchtap="stopPropagation">
+      <view class="filter-title">选择省份</view>
+      <view class="filter-options">
+        <view class="filter-option {{selectedProvince === '' ? 'active' : ''}}" 
+              bindtap="selectProvince" 
+              data-province="">
+          全部
+        </view>
+        <view class="filter-option {{selectedProvince === item ? 'active' : ''}}" 
+              wx:for="{{provinces}}" 
+              wx:key="*this"
+              bindtap="selectProvince" 
+              data-province="{{item}}">
+          {{item}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 层次筛选弹窗 -->
+  <view class="filter-modal" wx:if="{{showLevelModal}}" bindtap="hideLevelFilter">
+    <view class="filter-content" catchtap="stopPropagation">
+      <view class="filter-title">选择层次</view>
+      <view class="filter-options">
+        <view class="filter-option {{selectedLevel === '' ? 'active' : ''}}" 
+              bindtap="selectLevel" 
+              data-level="">
+          全部
+        </view>
+        <view class="filter-option {{selectedLevel === item ? 'active' : ''}}" 
+              wx:for="{{levels}}" 
+              wx:key="*this"
+              bindtap="selectLevel" 
+              data-level="{{item}}">
+          {{item}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 类型筛选弹窗 -->
+  <view class="filter-modal" wx:if="{{showTypeModal}}" bindtap="hideTypeFilter">
+    <view class="filter-content" catchtap="stopPropagation">
+      <view class="filter-title">选择类型</view>
+      <view class="filter-options">
+        <view class="filter-option {{selectedType === '' ? 'active' : ''}}" 
+              bindtap="selectType" 
+              data-type="">
+          全部
+        </view>
+        <view class="filter-option {{selectedType === item ? 'active' : ''}}" 
+              wx:for="{{types}}" 
+              wx:key="*this"
+              bindtap="selectType" 
+              data-type="{{item}}">
+          {{item}}
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
